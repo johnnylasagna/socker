@@ -2,6 +2,7 @@
 #include <errno.h>
 #include <netdb.h>
 #include <netinet/in.h>
+#define __USE_XOPEN_EXTENDED
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,7 +12,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#define port "3490"
+#define PORT "3490"
 #define backlog 10
 
 void sigchld_handler(int s) {
@@ -19,9 +20,8 @@ void sigchld_handler(int s) {
 
 	int saved_errno = errno;
 
-	while (waitpid(-1, NULL, WNOHANG) > 0) {
-		errno = saved_errno;
-	}
+	while (waitpid(-1, NULL, WNOHANG) > 0);
+	errno = saved_errno;
 }
 
 void *get_in_addr(struct sockaddr *sa) {
@@ -43,17 +43,17 @@ int main(void) {
 	int rv;
 
 	memset(&hints, 0, sizeof hints);
-	hints.ai_family = AF_INET;
+	hints.ai_family = AF_UNSPEC;
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_flags = AI_PASSIVE;
 
-	if ((rv == getaddrinfo(NULL, PORT, &hints, &servinfo)) != 0) {
+	if ((rv = getaddrinfo(NULL, PORT, &hints, &servinfo)) != 0) {
 		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
 		return 1;
 	}
 
-	for (p = servinfo; p != NULL, p p->ai_next) {
-		if ((sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) !=
+	for (p = servinfo; p != NULL; p = p->ai_next) {
+		if ((sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) ==
 		    -1) {
 			perror("server: socket");
 			continue;
@@ -71,5 +71,49 @@ int main(void) {
 		break;
 	}
 
-    freeaddrinfo(servinfo);
+	freeaddrinfo(servinfo);
+
+	if (p == NULL) {
+		fprintf(stderr, "server: failed to bind\n");
+		exit(1);
+	}
+
+	if (listen(sockfd, backlog) == -1) {
+		perror("listen");
+		exit(1);
+	}
+
+	sa.sa_handler = sigchld_handler;
+	sigemptyset(&sa.sa_mask);
+	sa.sa_flags = SA_RESTART;
+
+	if (sigaction(SIGCHLD, &sa, NULL) == -1) {
+		perror("sigaction");
+		exit(1);
+	}
+
+	printf("Server: waiting for connections...\n");
+
+	while (1) {
+		sin_size = sizeof their_addr;
+		new_fd = accept(sockfd, (struct sockaddr *)&their_addr, &sin_size);
+		if (new_fd == -1) {
+			perror("accept");
+			continue;
+		}
+		inet_ntop(their_addr.ss_family, get_in_addr((struct sockaddr *)&their_addr), s, sizeof s);
+		printf("Server got a connection from %s\n", s);
+
+		if (!fork()) {
+			close(sockfd);
+			if (send(new_fd, "Hello World!", 13, 0) == -1) {
+				perror("send");
+			}
+			close(new_fd);
+			exit(0);
+		}
+		close(new_fd);
+	}
+
+	return 0;
 }
