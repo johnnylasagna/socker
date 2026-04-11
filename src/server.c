@@ -2,7 +2,6 @@
 #include <errno.h>
 #include <netdb.h>
 #include <netinet/in.h>
-#define __USE_XOPEN_EXTENDED
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
