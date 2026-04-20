@@ -12,10 +12,9 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#define PORT "9034"
 #define BACKLOG 10
 
-const char *inet_top2(void *addr, char *buf, size_t size) {
+const char *inet_ntop2(void *addr, char *buf, size_t size) {
 	struct sockaddr_storage *sas = addr;
 	struct sockaddr_in *sa4;
 	struct sockaddr_in6 *sa6;
@@ -37,7 +36,7 @@ const char *inet_top2(void *addr, char *buf, size_t size) {
 	return inet_ntop(sas->ss_family, src, buf, size);
 }
 
-int get_listener_socket(void) {
+int get_listener_socket(const char *port) {
 	int listener;
 	int yes = 1;
 	int rv;
@@ -49,7 +48,7 @@ int get_listener_socket(void) {
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_flags = AI_PASSIVE;
 
-	if ((rv = getaddrinfo(NULL, PORT, &hints, &ai)) != 0) {
+	if ((rv = getaddrinfo(NULL, port, &hints, &ai)) != 0) {
 		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
 		return 1;
 	}
@@ -169,7 +168,7 @@ void process_connections(int listener, int *fd_count, int *fd_size, struct pollf
 	}
 }
 
-int main(void) {
+int main(int argc, char *argv[]) {
 
 	int listener;
 
@@ -177,7 +176,14 @@ int main(void) {
 	int fd_count = 0;
 	struct pollfd *pfds = malloc(sizeof *pfds * fd_size);
 
-	listener = get_listener_socket();
+	if (argc != 2) {
+		fprintf(stderr, "Usage: pollserver <port>");
+		exit(1);
+	}
+
+	const char *port = argv[1];
+
+	listener = get_listener_socket(port);
 
 	if (listener == -1) {
 		fprintf(stderr, "error getting listening socket\n");
