@@ -86,7 +86,7 @@ int get_listener_socket(void) {
 	return listener;
 }
 
-void add_to_pfds(struct pollfd **pfds, int newfd, int *fd_count, int* fd_size) {
+void add_to_pfds(struct pollfd **pfds, int newfd, int *fd_count, int *fd_size) {
 	if (*fd_count == *fd_size) {
 		*fd_size *= 2;
 		*pfds = realloc(*pfds, sizeof(**pfds) * (*fd_size));
@@ -99,51 +99,107 @@ void add_to_pfds(struct pollfd **pfds, int newfd, int *fd_count, int* fd_size) {
 	(*fd_count)++;
 }
 
-void del_from_pfds(struct pollfd pfds[], int i, int *fd_count)
+void del_from_pfds(struct pollfd pfds[], int i, int *fd_count) {
+	pfds[i] = pfds[*fd_count - 1];
+	(*fd_count)--;
+}
 
-void *get_in_addr(struct sockaddr *sa) {
-	if (sa->sa_family == AF_INET) {
-		return &(((struct sockaddr_in *)sa)->sin_addr);
+void handle_new_connection(int listener, int *fd_count, int *fd_size, struct pollfd **pfds) {
+	struct sockaddr_storage remoteaddr;
+	socklen_t addrlen;
+	int newfd;
+	char remoteIP[INET6_ADDRSTRLEN];
+
+	addrlen = sizeof remoteaddr;
+	newfd = accept(listener, (struct sockaddr *)&remoteaddr, &addrlen);
+
+	if (newfd == -1) {
+		perror("accept");
 	} else {
-		return &(((struct sockaddr_in6 *)sa)->sin6_addr);
+		add_to_pfds(pfds, newfd, fd_count, fd_size);
+
+		printf("pollserver: new connection from %s on socket %d\n",
+		       inet_ntop2(&remoteaddr, remoteIP, sizeof remoteIP), newfd);
+	}
+}
+
+void handle_client_data(int listener, int *fd_count, struct pollfd *pfds, int *pfd_i) {
+	char buf[256];
+
+	int nbytes = recv(pfds[*pfd_i].fd, buf, sizeof buf, 0);
+	int sender_fd = pfds[*pfd_i].fd;
+
+	if (nbytes <= 0) {
+		if (nbytes == 0) {
+			// Connection closed
+			printf("pollserver: socket %d hung up\n", sender_fd);
+		} else {
+			perror("recv");
+		}
+
+		close(pfds[*pfd_i].fd);
+
+		del_from_pfds(pfds, *pfd_i, fd_count);
+
+		(*pfd_i)--;
+	} else {
+		printf("pollserver: recv from fd %d: %.*s", sender_fd, nbytes, buf);
+
+		for (int j = 0; j < *fd_count; j++) {
+			int dest_fd = pfds[j].fd;
+
+			if (dest_fd != listener && dest_fd != sender_fd) {
+				if (send(dest_fd, buf, nbytes, 0) == -1) {
+					perror("send");
+				}
+			}
+		}
+	}
+}
+
+void process_connections(int listener, int *fd_count, int *fd_size, struct pollfd **pfds) {
+	for (int i = 0; i < *fd_count; i++) {
+		if ((*pfds)[i].revents & (POLLIN | POLLHUP)) {
+			if ((*pfds)[i].fd == listener) {
+				handle_new_connection(listener, fd_count, fd_size, pfds);
+			} else {
+				handle_client_data(listener, fd_count, *pfds, &i);
+			}
+		}
 	}
 }
 
 int main(void) {
 
-	
+	int listener;
 
-	sa.sa_handler = sigchld_handler;
-	sigemptyset(&sa.sa_mask);
-	sa.sa_flags = SA_RESTART;
+	int fd_size = 5;
+	int fd_count = 0;
+	struct pollfd *pfds = malloc(sizeof *pfds * fd_size);
 
-	if (sigaction(SIGCHLD, &sa, NULL) == -1) {
-		perror("sigaction");
+	listener = get_listener_socket();
+
+	if (listener == -1) {
+		fprintf(stderr, "error getting listening socket\n");
 		exit(1);
 	}
 
-	printf("Server: waiting for connections...\n");
+	pfds[0].fd = listener;
+	pfds[0].events = POLLIN;
 
-	while (1) {
-		sin_size = sizeof their_addr;
-		new_fd = accept(listener, (struct sockaddr *)&their_addr, &sin_size);
-		if (new_fd == -1) {
-			perror("accept");
-			continue;
-		}
-		inet_ntop(their_addr.ss_family,
-		          get_in_addr((struct sockaddr *)&their_addr), s, sizeof s);
-		printf("Server got a connection from %s\n", s);
+	fd_count = 1;
 
-		if (!fork()) {
-			close(listener);
-			if (send(new_fd, "Hello World!", 13, 0) == -1) {
-				perror("send");
-			}
-			close(new_fd);
-			exit(0);
+	puts("pollserver: waiting for connections...");
+
+	for (;;) {
+		int poll_count = poll(pfds, fd_count, -1);
+
+		if (poll_count == -1) {
+			perror("poll");
+			exit(1);
 		}
-		close(new_fd);
+
+		process_connections(listener, &fd_count, &fd_size, &pfds);
 	}
 
 	return 0;
