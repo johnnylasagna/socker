@@ -13,26 +13,10 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-const char *inet_ntop2(void *addr, char *buf, size_t size) {
-	struct sockaddr_storage *sas = addr;
-	struct sockaddr_in *sa4;
-	struct sockaddr_in6 *sa6;
-	void *src;
-
-	switch (sas->ss_family) {
-	case AF_INET:
-		sa4 = addr;
-		src = &(sa4->sin_addr);
-		break;
-	case AF_INET6:
-		sa6 = addr;
-		src = &(sa6->sin6_addr);
-		break;
-	default:
-		return NULL;
-	}
-
-	return inet_ntop(sas->ss_family, src, buf, size);
+void handle_sigint(int sig) {
+	endwin();
+	printf("\nDisconnected from chatroom.\n");
+	exit(0);
 }
 
 void *get_in_addr(struct sockaddr *sa) {
@@ -56,7 +40,7 @@ int get_server_socket(const char *server_name, const char *port) {
 
 	if ((rv = getaddrinfo(server_name, port, &hints, &ai)) != 0) {
 		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
-		return 1;
+		return -1;
 	}
 
 	for (p = ai; p != NULL; p = p->ai_next) {
@@ -89,10 +73,6 @@ int main(int argc, char *argv[]) {
 
 	int server;
 
-	int fd_size = 2;
-	int fd_count = 0;
-	struct pollfd *pfds = malloc(sizeof *pfds * fd_size);
-
 	if (argc != 3) {
 		fprintf(stderr, "Usage: pollclient <server> <port>");
 		exit(1);
@@ -108,13 +88,9 @@ int main(int argc, char *argv[]) {
 		exit(1);
 	}
 
-	pfds[0].fd = STDIN_FILENO;
-	pfds[0].events = POLLIN;
-
-	pfds[1].fd = server;
-	pfds[1].events = POLLIN;
-
-	fd_count = 2;
+	struct pollfd pfd;
+	pfd.fd = server;
+	pfd.events = POLLIN;
 
 	char name[20];
 	printf("Enter name to connect to chatroom with: ");
@@ -123,48 +99,60 @@ int main(int argc, char *argv[]) {
 	char messages[100][256];
 	int count = 0;
 
-	name[strcspn(name, "\n")] = ':';
+	char input[256] = {0};
+	int input_len = 0;
 
-	char you[] = "You:";
-	size_t you_length = 4;
+	int pos = strcspn(name, "\n");
+	name[pos] = ':';
+	name[pos + 1] = '\0';
+
+	// ncurses setup
+	signal(SIGINT, handle_sigint);
+	initscr();
+	cbreak();
+	noecho();
+	keypad(stdscr, TRUE);
+	nodelay(stdscr, TRUE);
+	curs_set(0);
+
+	int y, x;
+	getmaxyx(stdscr, y, x);
+
+	WINDOW *messages_win = newwin(y - 3, x, 0, 0);
+	WINDOW *message_win = newwin(3, x, y - 3, 0);
+
+	keypad(message_win, TRUE);
+	nodelay(message_win, TRUE);
+
+	werase(messages_win);
+	box(messages_win, 0, 0);
+	wrefresh(messages_win);
+
+	werase(message_win);
+	box(message_win, 0, 0);
+	mvwprintw(message_win, 1, 1, "> ");
+	wrefresh(message_win);
 
 	for (;;) {
-		if (poll(pfds, fd_count, -1) == -1) {
+		if (poll(&pfd, 1, 50) == -1) {
+			endwin();
 			perror("poll");
 			exit(1);
 		}
 
-		if (pfds[0].revents & POLLIN) {
-			char buf[256];
-
-			if (!fgets(buf, sizeof buf, stdin))
-				break;
-
-			strcpy(messages[count], you);
-			strcpy(messages[count] + you_length, buf);
-			count++;
-			// printf("\033[2J\033[H");
-			system("clear");
-			for (int i = 0; i < count; i++) {
-				printf("%s", messages[i]);
-			}
-
-			if (send(server, name, strlen(name), 0) == -1)
-				perror("send");
-
-			if (send(server, buf, strlen(buf), 0) == -1)
-				perror("send");
-		}
-
-		if (pfds[1].revents & POLLIN) {
+		if (pfd.revents & POLLIN) {
 			char buf[256];
 
 			int n = recv(server, buf, sizeof(buf) - 1, 0);
 
 			if (n == 0) {
+				endwin();
+				close(server);
 				printf("Server closed connection\n");
 				break;
 			} else if (n < 0) {
+				endwin();
+				close(server);
 				perror("recv");
 				break;
 			}
@@ -174,14 +162,94 @@ int main(int argc, char *argv[]) {
 			strcpy(messages[count], buf);
 			count++;
 
-			system("clear");
+			werase(messages_win);
 
-			for (int i = 0; i < count; i++) {
-				printf("%s", messages[i]);
+			box(messages_win, 0, 0);
+
+			int max_lines = y - 5;
+
+			int start = 0;
+
+			if (count > max_lines)
+				start = count - max_lines;
+
+			int row = 1;
+
+			for (int i = start; i < count; i++) {
+				mvwprintw(messages_win, row++, 1, "%s", messages[i]);
 			}
+
+			wrefresh(messages_win);
+		}
+
+		int ch = wgetch(message_win);
+
+		if (ch != ERR) {
+			if (ch == '\n') {
+				if (input_len > 0) {
+					if (strcmp(input, "/quit") == 0) {
+						break;
+					}
+
+					char msg[512];
+
+					snprintf(msg, sizeof(msg), "%s%s\n", name, input);
+
+					send(server, msg, strlen(msg), 0);
+
+					snprintf(messages[count], sizeof(messages[count]), "You:%s\n", input);
+
+					count++;
+
+					input_len = 0;
+
+					input[0] = '\0';
+				}
+			} else if (ch == KEY_BACKSPACE || ch == 127 || ch == 8) {
+				if (input_len > 0) {
+					input_len--;
+
+					input[input_len] = '\0';
+				}
+			} else {
+				if (input_len < 255) {
+					input[input_len++] = ch;
+					input[input_len] = '\0';
+				}
+			}
+
+			werase(message_win);
+
+			box(message_win, 0, 0);
+
+			mvwprintw(message_win, 1, 1, "> %s", input);
+
+			wmove(message_win, 1, 3 + input_len);
+
+			wrefresh(message_win);
+
+			werase(messages_win);
+
+			box(messages_win, 0, 0);
+
+			int max_lines = y - 5;
+
+			int start = 0;
+
+			if (count > max_lines)
+				start = count - max_lines;
+
+			int row = 1;
+
+			for (int i = start; i < count; i++) {
+				mvwprintw(messages_win, row++, 1, "%s", messages[i]);
+			}
+
+			wrefresh(messages_win);
 		}
 	}
 
+	endwin();
 	close(server);
 
 	return 0;
