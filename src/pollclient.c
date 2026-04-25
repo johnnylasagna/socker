@@ -13,12 +13,14 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+// To handle user pressing ctrl+c or ctrl+v to end program
 void handle_sigint(int sig) {
 	endwin();
 	printf("\nDisconnected from chatroom.\n");
 	exit(0);
 }
 
+// Getting address regardless of ipv6 or ipv4
 void *get_in_addr(struct sockaddr *sa) {
 	if (sa->sa_family == AF_INET) {
 		return &(((struct sockaddr_in *)sa)->sin_addr);
@@ -27,6 +29,7 @@ void *get_in_addr(struct sockaddr *sa) {
 	}
 }
 
+// Getting server socket from ip and port
 int get_server_socket(const char *server_name, const char *port) {
 	int server;
 	int rv;
@@ -69,6 +72,11 @@ int get_server_socket(const char *server_name, const char *port) {
 	return server;
 }
 
+struct message {
+	char content[256];
+	struct message *next;
+};
+
 int main(int argc, char *argv[]) {
 
 	int server;
@@ -96,7 +104,8 @@ int main(int argc, char *argv[]) {
 	printf("Enter name to connect to chatroom with: ");
 	fgets(name, sizeof name, stdin);
 
-	char messages[100][256];
+	struct message *messages = NULL;
+	struct message *messages_tail = NULL;
 	int count = 0;
 
 	char input[256] = {0};
@@ -159,7 +168,18 @@ int main(int argc, char *argv[]) {
 
 			buf[n] = '\0';
 
-			strcpy(messages[count], buf);
+			struct message *new_msg = malloc(sizeof(struct message));
+			strncpy(new_msg->content, buf, 255);
+			new_msg->content[255] = '\0';
+			new_msg->next = NULL;
+
+			if (messages == NULL) {
+				messages = new_msg;
+				messages_tail = new_msg;
+			} else {
+				messages_tail->next = new_msg;
+				messages_tail = new_msg;
+			}
 			count++;
 
 			werase(messages_win);
@@ -168,15 +188,19 @@ int main(int argc, char *argv[]) {
 
 			int max_lines = y - 5;
 
-			int start = 0;
-
-			if (count > max_lines)
-				start = count - max_lines;
+			if (count > max_lines) {
+				struct message *temp = messages;
+				messages = messages->next;
+				free(temp);
+				count--;
+			}
 
 			int row = 1;
 
-			for (int i = start; i < count; i++) {
-				mvwprintw(messages_win, row++, 1, "%s", messages[i]);
+			struct message *p = messages;
+			while (p != NULL) {
+				mvwprintw(messages_win, row++, 1, "%s", p->content);
+				p = p->next;
 			}
 
 			wrefresh(messages_win);
@@ -197,12 +221,21 @@ int main(int argc, char *argv[]) {
 
 					send(server, msg, strlen(msg), 0);
 
-					snprintf(messages[count], sizeof(messages[count]), "You:%s\n", input);
+					struct message *new_msg = malloc(sizeof(struct message));
+					snprintf(new_msg->content, sizeof(new_msg->content), "You:%s\n", input);
+					new_msg->next = NULL;
 
+					// Append to list
+					if (messages == NULL) {
+						messages = new_msg;
+						messages_tail = new_msg;
+					} else {
+						messages_tail->next = new_msg;
+						messages_tail = new_msg;
+					}
 					count++;
 
 					input_len = 0;
-
 					input[0] = '\0';
 				}
 			} else if (ch == KEY_BACKSPACE || ch == 127 || ch == 8) {
@@ -234,15 +267,19 @@ int main(int argc, char *argv[]) {
 
 			int max_lines = y - 5;
 
-			int start = 0;
-
-			if (count > max_lines)
-				start = count - max_lines;
+			if (count > max_lines) {
+				struct message *temp = messages;
+				messages = messages->next;
+				free(temp);
+				count--;
+			}
 
 			int row = 1;
 
-			for (int i = start; i < count; i++) {
-				mvwprintw(messages_win, row++, 1, "%s", messages[i]);
+			struct message *p = messages;
+			while (p != NULL) {
+				mvwprintw(messages_win, row++, 1, "%s", p->content);
+				p = p->next;
 			}
 
 			wrefresh(messages_win);
