@@ -120,7 +120,13 @@ int main(int argc, char *argv[]) {
 	printf("Enter name to connect to chatroom with: ");
 	fgets(name, sizeof name, stdin);
 
+	char messages[100][256];
+	int count = 0;
+
 	name[strcspn(name, "\n")] = ':';
+
+	char you[] = "You:";
+	size_t you_length = 4;
 
 	for (;;) {
 		if (poll(pfds, fd_count, -1) == -1) {
@@ -134,7 +140,14 @@ int main(int argc, char *argv[]) {
 			if (!fgets(buf, sizeof buf, stdin))
 				break;
 
-			printf("You: %s", buf);
+			strcpy(messages[count], you);
+			strcpy(messages[count] + you_length, buf);
+			count++;
+			// printf("\033[2J\033[H");
+			system("clear");
+			for (int i = 0; i < count; i++) {
+				printf("%s", messages[i]);
+			}
 
 			if (send(server, name, strlen(name), 0) == -1)
 				perror("send");
@@ -145,7 +158,8 @@ int main(int argc, char *argv[]) {
 
 		if (pfds[1].revents & POLLIN) {
 			char buf[256];
-			int n = recv(server, buf, sizeof buf, 0);
+
+			int n = recv(server, buf, sizeof(buf) - 1, 0);
 
 			if (n == 0) {
 				printf("Server closed connection\n");
@@ -155,7 +169,16 @@ int main(int argc, char *argv[]) {
 				break;
 			}
 
-			printf("%.*s", n, buf);
+			buf[n] = '\0';
+
+			strcpy(messages[count], buf);
+			count++;
+
+			system("clear");
+
+			for (int i = 0; i < count; i++) {
+				printf("%s", messages[i]);
+			}
 		}
 	}
 
