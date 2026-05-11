@@ -111,8 +111,23 @@ int send_join_message(int server, char *name) {
 	return 0;
 }
 
+// Set name locally and on server
+void set_name(int server, char *name, size_t size) {
+	printf("Enter name to connect to chatroom with: ");
+	fgets(name, size, stdin);
+
+	if (send_join_message(server, name) == -2) {
+		fprintf(stderr, "error sending joining message\n");
+		exit(1);
+	}
+
+	int pos = strcspn(name, "\n");
+	name[pos] = '\0';
+}
+
 int main(int argc, char *argv[]) {
 
+	// Server Setup
 	int server;
 
 	if (argc != 3) {
@@ -134,23 +149,18 @@ int main(int argc, char *argv[]) {
 	pfd.fd = server;
 	pfd.events = POLLIN;
 
+	// Name setup
 	char name[20];
-	printf("Enter name to connect to chatroom with: ");
-	fgets(name, sizeof name, stdin);
-	if (send_join_message(server, name) == -2) {
-		fprintf(stderr, "error sending joining message\n");
-		exit(1);
-	}
+	set_name(server, name, sizeof(name));
 
+	// Messages setup
 	struct message *messages = NULL;
 	struct message *messages_tail = NULL;
 	int count = 0;
 
+	// Input setup
 	char input[256] = {0};
 	int input_len = 0;
-
-	int pos = strcspn(name, "\n");
-	name[pos] = '\0';
 
 	// ncurses setup
 	signal(SIGINT, handle_sigint);
