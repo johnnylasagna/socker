@@ -125,6 +125,30 @@ void set_name(int server, char *name, size_t size) {
 	name[pos] = '\0';
 }
 
+// Refresh messages window
+void refresh_message_window(WINDOW *messages_win, struct message **messages, int *count, int max_lines) {
+	werase(messages_win);
+
+	box(messages_win, 0, 0);
+
+	while (*count > max_lines) {
+		struct message *temp = *messages;
+		(*messages) = (*messages)->next;
+		free(temp);
+		(*count)--;
+	}
+
+	int row = 1;
+
+	struct message *p = *messages;
+	while (p != NULL) {
+		mvwprintw(messages_win, row++, 1, "%s", p->content);
+		p = p->next;
+	}
+
+	wrefresh(messages_win);
+}
+
 int main(int argc, char *argv[]) {
 
 	// Server Setup
@@ -190,6 +214,7 @@ int main(int argc, char *argv[]) {
 	mvwprintw(message_win, 1, 1, "> ");
 	wrefresh(message_win);
 
+	// Main loop
 	for (;;) {
 		if (poll(&pfd, 1, 50) == -1) {
 			endwin();
@@ -218,26 +243,7 @@ int main(int argc, char *argv[]) {
 
 			add_message(&messages, &messages_tail, buf, &count);
 
-			werase(messages_win);
-
-			box(messages_win, 0, 0);
-
-			if (count > max_lines) {
-				struct message *temp = messages;
-				messages = messages->next;
-				free(temp);
-				count--;
-			}
-
-			int row = 1;
-
-			struct message *p = messages;
-			while (p != NULL) {
-				mvwprintw(messages_win, row++, 1, "%s", p->content);
-				p = p->next;
-			}
-
-			wrefresh(messages_win);
+			refresh_message_window(messages_win, &messages, &count, max_lines);
 		}
 
 		int ch = wgetch(message_win);
@@ -304,26 +310,7 @@ int main(int argc, char *argv[]) {
 
 			wrefresh(message_win);
 
-			werase(messages_win);
-
-			box(messages_win, 0, 0);
-
-			if (count > max_lines) {
-				struct message *temp = messages;
-				messages = messages->next;
-				free(temp);
-				count--;
-			}
-
-			int row = 1;
-
-			struct message *p = messages;
-			while (p != NULL) {
-				mvwprintw(messages_win, row++, 1, "%s", p->content);
-				p = p->next;
-			}
-
-			wrefresh(messages_win);
+			refresh_message_window(messages_win, &messages, &count, max_lines);
 		}
 	}
 
