@@ -72,11 +72,34 @@ int get_server_socket(const char *server_name, const char *port) {
 	return server;
 }
 
+// Linke list that gets messages
 struct message {
 	char content[512];
 	struct message *next;
 };
 
+// Add message to message linked list
+void add_message(struct message **messages, struct message **messages_tail, char *msg, int *count) {
+	struct message *new_msg = malloc(sizeof(struct message));
+	if (new_msg == NULL) {
+		perror("Failed to allocate memory for new message");
+		return;
+	}
+
+	snprintf(new_msg->content, sizeof(new_msg->content), "%s\n", msg);
+	new_msg->next = NULL;
+
+	if (*messages == NULL) {
+		*messages = new_msg;
+		*messages_tail = new_msg;
+	} else {
+		(*messages_tail)->next = new_msg;
+		*messages_tail = new_msg;
+	}
+	(*count)++;
+}
+
+// Send message to server to store name on initial join
 int send_join_message(int server, char *name) {
 	char com_buf[27];
 	strcpy(com_buf, "/name ");
@@ -183,19 +206,7 @@ int main(int argc, char *argv[]) {
 
 			buf[n] = '\0';
 
-			struct message *new_msg = malloc(sizeof(struct message));
-			strncpy(new_msg->content, buf, 255);
-			new_msg->content[255] = '\0';
-			new_msg->next = NULL;
-
-			if (messages == NULL) {
-				messages = new_msg;
-				messages_tail = new_msg;
-			} else {
-				messages_tail->next = new_msg;
-				messages_tail = new_msg;
-			}
-			count++;
+			add_message(&messages, &messages_tail, buf, &count);
 
 			werase(messages_win);
 
@@ -246,18 +257,7 @@ int main(int argc, char *argv[]) {
 
 							snprintf(whispered_msg, sizeof(whispered_msg), "(%s%s) %s", whispered_to, name_buf, input + 9 + name_len + 1);
 
-							struct message *new_msg = malloc(sizeof(struct message));
-							snprintf(new_msg->content, sizeof(new_msg->content), "%s\n", whispered_msg);
-							new_msg->next = NULL;
-
-							if (messages == NULL) {
-								messages = new_msg;
-								messages_tail = new_msg;
-							} else {
-								messages_tail->next = new_msg;
-								messages_tail = new_msg;
-							}
-							count++;
+							add_message(&messages, &messages_tail, whispered_msg, &count);
 						}
 
 					} else {
@@ -265,19 +265,7 @@ int main(int argc, char *argv[]) {
 
 						send(server, msg, strlen(msg), 0);
 
-						struct message *new_msg = malloc(sizeof(struct message));
-						snprintf(new_msg->content, sizeof(new_msg->content), "You:%s\n", input);
-						new_msg->next = NULL;
-
-						// Append to list
-						if (messages == NULL) {
-							messages = new_msg;
-							messages_tail = new_msg;
-						} else {
-							messages_tail->next = new_msg;
-							messages_tail = new_msg;
-						}
-						count++;
+						add_message(&messages, &messages_tail, msg, &count);
 					}
 
 					input_len = 0;
