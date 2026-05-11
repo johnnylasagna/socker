@@ -14,7 +14,7 @@
 
 #define BACKLOG 10
 
-char names[10][20];
+char names[__FD_SETSIZE][20];
 
 const char *inet_ntop2(void *addr, char *buf, size_t size) {
 	struct sockaddr_storage *sas = addr;
@@ -174,8 +174,53 @@ void handle_client_data(int listener, int *fd_count, struct pollfd *pfds, int *p
 				memcpy(names[sender_fd], buf + 6, len);
 				names[sender_fd][len] = '\0';
 				printf("Name saved at fd %d: %s\n", sender_fd, names[sender_fd]);
-			} else if (strncmp(buf, "/whisper", 7) == 0) {
-				printf("Whisper functionality not yet implemented\n");
+
+				char name_buf[40];
+				snprintf(name_buf, sizeof(name_buf), "%s just joined us\n", names[sender_fd]);
+
+				for (int j = 0; j < *fd_count; j++) {
+					int dest_fd = pfds[j].fd;
+
+					if (dest_fd != listener && dest_fd != sender_fd) {
+						if (send(dest_fd, name_buf, strlen(name_buf), 0) == -1) {
+							perror("send");
+						}
+					}
+				}
+
+			} else if (strncmp(buf, "/whisper ", 9) == 0) {
+				char name_buf[20];
+				size_t name_len = strcspn(buf + 9, " ");
+
+				if (name_len >= sizeof(name_buf)) {
+					name_len = sizeof(name_buf) - 1;
+				}
+
+				memcpy(name_buf, buf + 9, name_len);
+				name_buf[name_len] = '\0';
+
+				const char *msg_start = buf + name_len + 10;
+				size_t msg_len = strlen(msg_start);
+
+				char whisper_msg[256];
+				if (msg_len >= sizeof(whisper_msg)) {
+					msg_len = sizeof(whisper_msg) - 1;
+				}
+
+				memcpy(whisper_msg, msg_start, msg_len);
+				whisper_msg[msg_len] = '\0';
+
+				char whisper_msg_with_name[280];
+				snprintf(whisper_msg_with_name, sizeof(whisper_msg_with_name), "(%s) %s", names[sender_fd], whisper_msg);
+
+				for (int i = 0; i < __FD_SETSIZE; i++) {
+					if (strcmp(names[i], name_buf) == 0) {
+						if (send(i, whisper_msg_with_name, strlen(whisper_msg_with_name), 0) == -1) {
+							perror("send");
+						}
+						return;
+					}
+				}
 			}
 		} else {
 			for (int j = 0; j < *fd_count; j++) {

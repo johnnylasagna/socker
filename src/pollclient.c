@@ -73,7 +73,7 @@ int get_server_socket(const char *server_name, const char *port) {
 }
 
 struct message {
-	char content[256];
+	char content[512];
 	struct message *next;
 };
 
@@ -82,15 +82,6 @@ int send_join_message(int server, char *name) {
 	strcpy(com_buf, "/name ");
 	strcpy(com_buf + 6, name);
 	if (send(server, com_buf, strlen(com_buf), 0) == -1) {
-		return -2;
-	}
-
-	char buf[33];
-	strcpy(buf, name);
-	int pos = strcspn(name, "\n");
-	strcpy(buf + pos, " just joined us\n\0");
-
-	if (send(server, buf, strlen(buf), 0) == -1) {
 		return -2;
 	}
 
@@ -233,11 +224,42 @@ int main(int argc, char *argv[]) {
 		if (ch != ERR) {
 			if (ch == '\n') {
 				if (input_len > 0) {
-					char msg[512];
+					char msg[280];
 
 					if (input[0] == '/') {
 						snprintf(msg, sizeof(msg), "%s\n", input);
 						send(server, msg, strlen(msg), 0);
+
+						if (strncmp(input, "/whisper ", 9) == 0) {
+							char name_buf[20];
+							size_t name_len = strcspn(input + 9, " ");
+
+							if (name_len >= sizeof(name_buf)) {
+								name_len = sizeof(name_buf) - 1;
+							}
+
+							memcpy(name_buf, input + 9, name_len);
+							name_buf[name_len] = '\0';
+
+							char whispered_to[] = "whispered to ";
+							char whispered_msg[sizeof(whispered_to) + 256 + 5];
+
+							snprintf(whispered_msg, sizeof(whispered_msg), "(%s%s) %s", whispered_to, name_buf, input + 9 + name_len + 1);
+
+							struct message *new_msg = malloc(sizeof(struct message));
+							snprintf(new_msg->content, sizeof(new_msg->content), "%s\n", whispered_msg);
+							new_msg->next = NULL;
+
+							if (messages == NULL) {
+								messages = new_msg;
+								messages_tail = new_msg;
+							} else {
+								messages_tail->next = new_msg;
+								messages_tail = new_msg;
+							}
+							count++;
+						}
+
 					} else {
 						snprintf(msg, sizeof(msg), "%s:%s\n", name, input);
 
