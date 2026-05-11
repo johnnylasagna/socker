@@ -77,12 +77,32 @@ struct message {
 	struct message *next;
 };
 
+int send_join_message(int server, char *name) {
+	char com_buf[27];
+	strcpy(com_buf, "/name ");
+	strcpy(com_buf + 6, name);
+	if (send(server, com_buf, strlen(com_buf), 0) == -1) {
+		return -2;
+	}
+
+	char buf[33];
+	strcpy(buf, name);
+	int pos = strcspn(name, "\n");
+	strcpy(buf + pos, " just joined us\n\0");
+
+	if (send(server, buf, strlen(buf), 0) == -1) {
+		return -2;
+	}
+
+	return 0;
+}
+
 int main(int argc, char *argv[]) {
 
 	int server;
 
 	if (argc != 3) {
-		fprintf(stderr, "Usage: pollclient <server> <port>");
+		fprintf(stderr, "Usage: pollclient <server> <port>\n");
 		exit(1);
 	}
 
@@ -103,6 +123,10 @@ int main(int argc, char *argv[]) {
 	char name[20];
 	printf("Enter name to connect to chatroom with: ");
 	fgets(name, sizeof name, stdin);
+	if (send_join_message(server, name) == -2) {
+		fprintf(stderr, "error sending joining message\n");
+		exit(1);
+	}
 
 	struct message *messages = NULL;
 	struct message *messages_tail = NULL;
@@ -112,8 +136,7 @@ int main(int argc, char *argv[]) {
 	int input_len = 0;
 
 	int pos = strcspn(name, "\n");
-	name[pos] = ':';
-	name[pos + 1] = '\0';
+	name[pos] = '\0';
 
 	// ncurses setup
 	signal(SIGINT, handle_sigint);
@@ -129,6 +152,7 @@ int main(int argc, char *argv[]) {
 
 	WINDOW *messages_win = newwin(y - 3, x, 0, 0);
 	WINDOW *message_win = newwin(3, x, y - 3, 0);
+	int max_lines = y - 5;
 
 	keypad(message_win, TRUE);
 	nodelay(message_win, TRUE);
@@ -186,8 +210,6 @@ int main(int argc, char *argv[]) {
 
 			box(messages_win, 0, 0);
 
-			int max_lines = y - 5;
-
 			if (count > max_lines) {
 				struct message *temp = messages;
 				messages = messages->next;
@@ -211,29 +233,30 @@ int main(int argc, char *argv[]) {
 		if (ch != ERR) {
 			if (ch == '\n') {
 				if (input_len > 0) {
-					if (strcmp(input, "/quit") == 0) {
-						break;
-					}
-
 					char msg[512];
 
-					snprintf(msg, sizeof(msg), "%s%s\n", name, input);
-
-					send(server, msg, strlen(msg), 0);
-
-					struct message *new_msg = malloc(sizeof(struct message));
-					snprintf(new_msg->content, sizeof(new_msg->content), "You:%s\n", input);
-					new_msg->next = NULL;
-
-					// Append to list
-					if (messages == NULL) {
-						messages = new_msg;
-						messages_tail = new_msg;
+					if (input[0] == '/') {
+						snprintf(msg, sizeof(msg), "%s\n", input);
+						send(server, msg, strlen(msg), 0);
 					} else {
-						messages_tail->next = new_msg;
-						messages_tail = new_msg;
+						snprintf(msg, sizeof(msg), "%s:%s\n", name, input);
+
+						send(server, msg, strlen(msg), 0);
+
+						struct message *new_msg = malloc(sizeof(struct message));
+						snprintf(new_msg->content, sizeof(new_msg->content), "You:%s\n", input);
+						new_msg->next = NULL;
+
+						// Append to list
+						if (messages == NULL) {
+							messages = new_msg;
+							messages_tail = new_msg;
+						} else {
+							messages_tail->next = new_msg;
+							messages_tail = new_msg;
+						}
+						count++;
 					}
-					count++;
 
 					input_len = 0;
 					input[0] = '\0';
@@ -264,8 +287,6 @@ int main(int argc, char *argv[]) {
 			werase(messages_win);
 
 			box(messages_win, 0, 0);
-
-			int max_lines = y - 5;
 
 			if (count > max_lines) {
 				struct message *temp = messages;

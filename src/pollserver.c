@@ -14,6 +14,8 @@
 
 #define BACKLOG 10
 
+char names[10][20];
+
 const char *inet_ntop2(void *addr, char *buf, size_t size) {
 	struct sockaddr_storage *sas = addr;
 	struct sockaddr_in *sa4;
@@ -125,7 +127,7 @@ void handle_new_connection(int listener, int *fd_count, int *fd_size, struct pol
 void handle_client_data(int listener, int *fd_count, struct pollfd *pfds, int *pfd_i) {
 	char buf[256];
 
-	int nbytes = recv(pfds[*pfd_i].fd, buf, sizeof buf, 0);
+	int nbytes = recv(pfds[*pfd_i].fd, buf, sizeof(buf) - 1, 0);
 	int sender_fd = pfds[*pfd_i].fd;
 
 	if (nbytes <= 0) {
@@ -142,14 +144,47 @@ void handle_client_data(int listener, int *fd_count, struct pollfd *pfds, int *p
 
 		(*pfd_i)--;
 	} else {
+		buf[nbytes] = '\0';
 		printf("pollserver: recv from fd %d: %.*s", sender_fd, nbytes, buf);
 
-		for (int j = 0; j < *fd_count; j++) {
-			int dest_fd = pfds[j].fd;
+		if (buf[0] == '/') {
+			if (strncmp(buf, "/quit", 5) == 0) {
+				char quit_buf[40];
+				snprintf(quit_buf, sizeof(quit_buf), "%s left\n", names[sender_fd]);
+				memset(names[*pfd_i], 0, sizeof(names[sender_fd]));
 
-			if (dest_fd != listener && dest_fd != sender_fd) {
-				if (send(dest_fd, buf, nbytes, 0) == -1) {
-					perror("send");
+				close(sender_fd);
+				del_from_pfds(pfds, *pfd_i, fd_count);
+
+				for (int j = 0; j < *fd_count; j++) {
+					int dest_fd = pfds[j].fd;
+
+					if (dest_fd != listener && dest_fd != sender_fd) {
+						if (send(dest_fd, quit_buf, sizeof(quit_buf), 0) == -1) {
+							perror("send");
+						}
+					}
+				}
+			} else if (strncmp(buf, "/name", 5) == 0) {
+				size_t len = strcspn(buf + 6, "\n");
+
+				if (len >= sizeof(names[sender_fd]))
+					len = sizeof(names[sender_fd]) - 1;
+
+				memcpy(names[sender_fd], buf + 6, len);
+				names[sender_fd][len] = '\0';
+				printf("Name saved at fd %d: %s\n", sender_fd, names[sender_fd]);
+			} else if (strncmp(buf, "/whisper", 7) == 0) {
+				printf("Whisper functionality not yet implemented\n");
+			}
+		} else {
+			for (int j = 0; j < *fd_count; j++) {
+				int dest_fd = pfds[j].fd;
+
+				if (dest_fd != listener && dest_fd != sender_fd) {
+					if (send(dest_fd, buf, nbytes, 0) == -1) {
+						perror("send");
+					}
 				}
 			}
 		}
@@ -172,7 +207,7 @@ int main(int argc, char *argv[]) {
 
 	int listener;
 
-	int fd_size = 5;
+	int fd_size = 10;
 	int fd_count = 0;
 	struct pollfd *pfds = malloc(sizeof *pfds * fd_size);
 
