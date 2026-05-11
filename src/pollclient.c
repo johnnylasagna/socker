@@ -99,6 +99,22 @@ void add_message(struct message **messages, struct message **messages_tail, char
 	(*count)++;
 }
 
+void generate_whispered_message(char *whispered_msg, size_t size, char *input) {
+	char name_buf[20];
+	size_t name_len = strcspn(input + 9, " ");
+
+	if (name_len >= sizeof(name_buf)) {
+		name_len = sizeof(name_buf) - 1;
+	}
+
+	memcpy(name_buf, input + 9, name_len);
+	name_buf[name_len] = '\0';
+
+	char whispered_to[] = "whispered to ";
+
+	snprintf(whispered_msg, size, "(%s%s) %s", whispered_to, name_buf, input + 9 + name_len + 1);
+}
+
 // Send message to server to store name on initial join
 int send_join_message(int server, char *name) {
 	char com_buf[27];
@@ -264,37 +280,27 @@ int main(int argc, char *argv[]) {
 		if (ch != ERR) {
 			if (ch == '\n') {
 				if (input_len > 0) {
-					char msg[280];
 
 					if (input[0] == '/') {
+						char msg[280];
 						snprintf(msg, sizeof(msg), "%s\n", input);
 						send(server, msg, strlen(msg), 0);
 
 						if (strncmp(input, "/whisper ", 9) == 0) {
-							char name_buf[20];
-							size_t name_len = strcspn(input + 9, " ");
-
-							if (name_len >= sizeof(name_buf)) {
-								name_len = sizeof(name_buf) - 1;
-							}
-
-							memcpy(name_buf, input + 9, name_len);
-							name_buf[name_len] = '\0';
-
-							char whispered_to[] = "whispered to ";
-							char whispered_msg[sizeof(whispered_to) + 256 + 5];
-
-							snprintf(whispered_msg, sizeof(whispered_msg), "(%s%s) %s", whispered_to, name_buf, input + 9 + name_len + 1);
-
+							char whispered_msg[300];
+							generate_whispered_message(whispered_msg, sizeof(whispered_msg), input);
 							add_message(&messages, &messages_tail, whispered_msg, &count);
 						}
 
 					} else {
+						char msg[280];
 						snprintf(msg, sizeof(msg), "%s:%s\n", name, input);
-
 						send(server, msg, strlen(msg), 0);
 
-						add_message(&messages, &messages_tail, msg, &count);
+						char messages_msg[280];
+						snprintf(messages_msg, sizeof(messages_msg), "You:%s\n", input);
+
+						add_message(&messages, &messages_tail, messages_msg, &count);
 					}
 
 					input_len = 0;
