@@ -4,6 +4,7 @@
 #include <netinet/in.h>
 #include <poll.h>
 #include <signal.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -13,9 +14,34 @@
 #include <unistd.h>
 
 #define BACKLOG 10
+bool debug = true;
 
 char names[__FD_SETSIZE][20];
 
+// Get file descriptor to send whispered message to
+int get_fd_from_whispered_name(char *name_buf) {
+	for (int i = 0; i < __FD_SETSIZE; i++) {
+		if (strcmp(names[i], name_buf) == 0) {
+			return i;
+		}
+	}
+	return -1;
+}
+
+// Send to all other clients
+void send_to_all_clients(int listener, int *fd_count, struct pollfd *pfds, int *sender_fd, char *buf, size_t size) {
+	for (int j = 0; j < *fd_count; j++) {
+		int dest_fd = pfds[j].fd;
+
+		if (dest_fd != listener && dest_fd != *sender_fd) {
+			if (send(dest_fd, buf, size, 0) == -1) {
+				perror("send");
+			}
+		}
+	}
+}
+
+// Convert IP address into printable format
 const char *inet_ntop2(void *addr, char *buf, size_t size) {
 	struct sockaddr_storage *sas = addr;
 	struct sockaddr_in *sa4;
@@ -38,6 +64,7 @@ const char *inet_ntop2(void *addr, char *buf, size_t size) {
 	return inet_ntop(sas->ss_family, src, buf, size);
 }
 
+// Get listener socket for server
 int get_listener_socket(const char *port) {
 	int listener;
 	int yes = 1;
@@ -87,6 +114,7 @@ int get_listener_socket(const char *port) {
 	return listener;
 }
 
+// Add connected client to list
 void add_to_pfds(struct pollfd **pfds, int newfd, int *fd_count, int *fd_size) {
 	if (*fd_count == *fd_size) {
 		*fd_size *= 2;
@@ -100,11 +128,13 @@ void add_to_pfds(struct pollfd **pfds, int newfd, int *fd_count, int *fd_size) {
 	(*fd_count)++;
 }
 
+// Delete disconnected client from list
 void del_from_pfds(struct pollfd pfds[], int i, int *fd_count) {
 	pfds[i] = pfds[*fd_count - 1];
 	(*fd_count)--;
 }
 
+// Handle new connection
 void handle_new_connection(int listener, int *fd_count, int *fd_size, struct pollfd **pfds) {
 	struct sockaddr_storage remoteaddr;
 	socklen_t addrlen;
@@ -124,15 +154,16 @@ void handle_new_connection(int listener, int *fd_count, int *fd_size, struct pol
 	}
 }
 
+// Handle client messages
 void handle_client_data(int listener, int *fd_count, struct pollfd *pfds, int *pfd_i) {
 	char buf[256];
 
-	int nbytes = recv(pfds[*pfd_i].fd, buf, sizeof(buf) - 1, 0);
+	int n = recv(pfds[*pfd_i].fd, buf, sizeof(buf) - 1, 0);
 	int sender_fd = pfds[*pfd_i].fd;
 
-	if (nbytes <= 0) {
-		if (nbytes == 0) {
-			// Connection closed
+	if (n <= 0) {
+		// Connection closed
+		if (n == 0) {
 			printf("pollserver: socket %d hung up\n", sender_fd);
 		} else {
 			perror("recv");
@@ -144,27 +175,20 @@ void handle_client_data(int listener, int *fd_count, struct pollfd *pfds, int *p
 
 		(*pfd_i)--;
 	} else {
-		buf[nbytes] = '\0';
-		printf("pollserver: recv from fd %d: %.*s", sender_fd, nbytes, buf);
+		buf[n] = '\0';
+		printf("pollserver: recv from fd %d: %.*s", sender_fd, n, buf);
 
 		if (buf[0] == '/') {
 			if (strncmp(buf, "/quit", 5) == 0) {
 				char quit_buf[40];
 				snprintf(quit_buf, sizeof(quit_buf), "%s left\n", names[sender_fd]);
-				memset(names[*pfd_i], 0, sizeof(names[sender_fd]));
 
+				memset(names[*pfd_i], 0, sizeof(names[sender_fd]));
 				close(sender_fd);
 				del_from_pfds(pfds, *pfd_i, fd_count);
 
-				for (int j = 0; j < *fd_count; j++) {
-					int dest_fd = pfds[j].fd;
+				send_to_all_clients(listener, fd_count, pfds, &sender_fd, quit_buf, strlen(quit_buf));
 
-					if (dest_fd != listener && dest_fd != sender_fd) {
-						if (send(dest_fd, quit_buf, sizeof(quit_buf), 0) == -1) {
-							perror("send");
-						}
-					}
-				}
 			} else if (strncmp(buf, "/name", 5) == 0) {
 				size_t len = strcspn(buf + 6, "\n");
 
@@ -178,15 +202,7 @@ void handle_client_data(int listener, int *fd_count, struct pollfd *pfds, int *p
 				char name_buf[40];
 				snprintf(name_buf, sizeof(name_buf), "%s just joined us\n", names[sender_fd]);
 
-				for (int j = 0; j < *fd_count; j++) {
-					int dest_fd = pfds[j].fd;
-
-					if (dest_fd != listener && dest_fd != sender_fd) {
-						if (send(dest_fd, name_buf, strlen(name_buf), 0) == -1) {
-							perror("send");
-						}
-					}
-				}
+				send_to_all_clients(listener, fd_count, pfds, &sender_fd, name_buf, strlen(name_buf));
 
 			} else if (strncmp(buf, "/whisper ", 9) == 0) {
 				char name_buf[20];
@@ -213,25 +229,15 @@ void handle_client_data(int listener, int *fd_count, struct pollfd *pfds, int *p
 				char whisper_msg_with_name[280];
 				snprintf(whisper_msg_with_name, sizeof(whisper_msg_with_name), "(%s) %s", names[sender_fd], whisper_msg);
 
-				for (int i = 0; i < __FD_SETSIZE; i++) {
-					if (strcmp(names[i], name_buf) == 0) {
-						if (send(i, whisper_msg_with_name, strlen(whisper_msg_with_name), 0) == -1) {
-							perror("send");
-						}
-						return;
-					}
-				}
-			}
-		} else {
-			for (int j = 0; j < *fd_count; j++) {
-				int dest_fd = pfds[j].fd;
-
-				if (dest_fd != listener && dest_fd != sender_fd) {
-					if (send(dest_fd, buf, nbytes, 0) == -1) {
+				int whispered_fd = get_fd_from_whispered_name(name_buf);
+				if (whispered_fd != -1) {
+					if (send(whispered_fd, whisper_msg_with_name, strlen(whisper_msg_with_name), 0) == -1) {
 						perror("send");
 					}
 				}
 			}
+		} else {
+			send_to_all_clients(listener, fd_count, pfds, &sender_fd, buf, strlen(buf));
 		}
 	}
 }
@@ -250,6 +256,7 @@ void process_connections(int listener, int *fd_count, int *fd_size, struct pollf
 
 int main(int argc, char *argv[]) {
 
+	// Listener setup
 	int listener;
 
 	int fd_size = 10;
@@ -277,6 +284,7 @@ int main(int argc, char *argv[]) {
 
 	puts("pollserver: waiting for connections...");
 
+	// Main loop
 	for (;;) {
 		int poll_count = poll(pfds, fd_count, -1);
 
