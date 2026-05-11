@@ -126,7 +126,7 @@ void set_name(int server, char *name, size_t size) {
 }
 
 // Refresh messages window
-void refresh_message_window(WINDOW *messages_win, struct message **messages, int *count, int max_lines) {
+void refresh_messages_window(WINDOW *messages_win, struct message **messages, int *count, int max_lines) {
 	werase(messages_win);
 
 	box(messages_win, 0, 0);
@@ -147,6 +147,19 @@ void refresh_message_window(WINDOW *messages_win, struct message **messages, int
 	}
 
 	wrefresh(messages_win);
+}
+
+// Refresh message window
+void refresh_input_window(WINDOW *input_win, char *input, int *input_len) {
+	werase(input_win);
+
+	box(input_win, 0, 0);
+
+	mvwprintw(input_win, 1, 1, "> %s", input);
+
+	wmove(input_win, 1, 3 + *input_len);
+
+	wrefresh(input_win);
 }
 
 int main(int argc, char *argv[]) {
@@ -199,20 +212,20 @@ int main(int argc, char *argv[]) {
 	getmaxyx(stdscr, y, x);
 
 	WINDOW *messages_win = newwin(y - 3, x, 0, 0);
-	WINDOW *message_win = newwin(3, x, y - 3, 0);
+	WINDOW *input_win = newwin(3, x, y - 3, 0);
 	int max_lines = y - 5;
 
-	keypad(message_win, TRUE);
-	nodelay(message_win, TRUE);
+	keypad(input_win, TRUE);
+	nodelay(input_win, TRUE);
 
 	werase(messages_win);
 	box(messages_win, 0, 0);
 	wrefresh(messages_win);
 
-	werase(message_win);
-	box(message_win, 0, 0);
-	mvwprintw(message_win, 1, 1, "> ");
-	wrefresh(message_win);
+	werase(input_win);
+	box(input_win, 0, 0);
+	mvwprintw(input_win, 1, 1, "> ");
+	wrefresh(input_win);
 
 	// Main loop
 	for (;;) {
@@ -243,10 +256,10 @@ int main(int argc, char *argv[]) {
 
 			add_message(&messages, &messages_tail, buf, &count);
 
-			refresh_message_window(messages_win, &messages, &count, max_lines);
+			refresh_messages_window(messages_win, &messages, &count, max_lines);
 		}
 
-		int ch = wgetch(message_win);
+		int ch = wgetch(input_win);
 
 		if (ch != ERR) {
 			if (ch == '\n') {
@@ -300,17 +313,8 @@ int main(int argc, char *argv[]) {
 				}
 			}
 
-			werase(message_win);
-
-			box(message_win, 0, 0);
-
-			mvwprintw(message_win, 1, 1, "> %s", input);
-
-			wmove(message_win, 1, 3 + input_len);
-
-			wrefresh(message_win);
-
-			refresh_message_window(messages_win, &messages, &count, max_lines);
+			refresh_input_window(input_win, input, &input_len);
+			refresh_messages_window(messages_win, &messages, &count, max_lines);
 		}
 	}
 
