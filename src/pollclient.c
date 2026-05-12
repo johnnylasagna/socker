@@ -168,14 +168,21 @@ void refresh_messages_window(WINDOW *messages_win, WINDOW *messages_text_win, st
 }
 
 // Refresh message window
-void refresh_input_window(WINDOW *input_win, char *input, int *input_len) {
+void refresh_input_window(WINDOW *input_win, char *input, int *input_len, int window_width) {
 	werase(input_win);
 
 	box(input_win, 0, 0);
 
-	mvwprintw(input_win, 1, 1, "> %s", input);
+	size_t offset = *input_len / (window_width - 2);
+	size_t remaining_input = *input_len % (window_width - 2);
 
-	wmove(input_win, 1, 3 + *input_len);
+	if (remaining_input == 0 && offset != 0) {
+		mvwprintw(input_win, 1, 1, "> %s", input + (offset - 1) * (window_width - 2));
+		wmove(input_win, 1, 3 + window_width - 2);
+	} else {
+		wmove(input_win, 1, 3 + remaining_input);
+		mvwprintw(input_win, 1, 1, "> %s", input + offset * (window_width - 2));
+	}
 
 	wrefresh(input_win);
 }
@@ -322,7 +329,7 @@ int main(int argc, char *argv[]) {
 				}
 			}
 
-			refresh_input_window(input_win, input, &input_len);
+			refresh_input_window(input_win, input, &input_len, x - 2);
 			refresh_messages_window(messages_win, messages_text_win, &messages, &count, max_lines, x - 2);
 		}
 	}
