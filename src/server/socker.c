@@ -21,8 +21,7 @@ void init_socker(struct Socker *socker) {
 
 	socker->player_positions = malloc(sizeof(int[2]) * socker->player_size);
 
-	if (socker->player_fds == NULL ||
-	    socker->player_positions == NULL) {
+	if (socker->player_fds == NULL || socker->player_positions == NULL) {
 		perror("malloc");
 		exit(1);
 	}
@@ -52,7 +51,7 @@ int add_player_to_socker(struct Socker *socker, int fd) {
 }
 
 // Delete player from socker
-void delete_player(struct Socker *socker, int index) {
+int delete_player(struct Socker *socker, int index) {
 	int last = socker->player_count - 1;
 
 	socker->player_fds[index] = socker->player_fds[last];
@@ -60,6 +59,8 @@ void delete_player(struct Socker *socker, int index) {
 	socker->player_positions[index][1] = socker->player_positions[last][1];
 
 	socker->player_count--;
+
+	return last;
 }
 
 void send_player_data(struct Socker *socker) {

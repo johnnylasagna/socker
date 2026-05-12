@@ -209,11 +209,13 @@ void handle_client_data(int listener, int *fd_count, struct pollfd *pfds, int *p
 				char id_buf[22];
 				snprintf(id_buf, sizeof(id_buf), "/data id %d\n", id);
 				send(sender_fd, id_buf, sizeof(id_buf), 0);
+				send_player_data(socker);
 
 			} else if (strncmp(buf, "/data", 5) == 0) {
 				int id;
 				int dx;
 				int dy;
+
 				if (sscanf(buf + 6, "%d %d %d", &id, &dx, &dy) != 3) {
 					fprintf(stderr, "malformed data received\n");
 					exit(1);
@@ -229,6 +231,21 @@ void handle_client_data(int listener, int *fd_count, struct pollfd *pfds, int *p
 				} else if (dy == 2) {
 					socker->player_positions[id][1] -= 1;
 				}
+				send_player_data(socker);
+
+			} else if (strncmp(buf, "/leave", 6) == 0) {
+				int id;
+
+				if (sscanf(buf + strlen("/leave"), "%d", &id) != 1) {
+					fprintf(stderr, "malformed leave received\n");
+					exit(1);
+				}
+
+				int old_id = delete_player(socker, id);
+
+				char new_id_buf[20];
+				snprintf(new_id_buf, sizeof(new_id_buf), "/data id %d\n", id);
+				send(socker->player_fds[old_id], new_id_buf, strlen(new_id_buf), 0);
 				send_player_data(socker);
 			}
 		} else {

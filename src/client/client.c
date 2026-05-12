@@ -136,18 +136,18 @@ int main(int argc, char *argv[]) {
 					while (line != NULL) {
 						int pos_x, pos_y;
 
-						if (strncmp(line, "/data id", 8) == 0) {
-							if (sscanf(line + 10, "%d", &id) != 1) {
+						if (strncmp(line, "/data id", strlen("/data id")) == 0) {
+							if (sscanf(line + strlen("/data id"), "%d", &id) != 1) {
 								fprintf(stderr, "id malformed\n");
 							}
 
-						} else if (strncmp(line, "/data ball", 10) == 0) {
-							if (sscanf(line + 13, "%d %d", &pos_x, &pos_y) == 2) {
+						} else if (strncmp(line, "/data ball", strlen("/data ball")) == 0) {
+							if (sscanf(line + strlen("/data ball"), "%d %d", &pos_x, &pos_y) == 2) {
 								mvwprintw(socker_win, pos_y, pos_x, "O");
 							}
 
-						} else if (strncmp(line, "player", 6) == 0) {
-							if (sscanf(line + 8, "%d %d", &pos_x, &pos_y) == 2) {
+						} else if (strncmp(line, "player", strlen("player")) == 0) {
+							if (sscanf(line + strlen("player"), "%d %d", &pos_x, &pos_y) == 2) {
 								mvwprintw(socker_win, pos_y, pos_x, "X");
 							}
 						}
@@ -241,24 +241,28 @@ int main(int argc, char *argv[]) {
 					refresh_input_window(input_win, input, &input_len, x - 2);
 					refresh_messages_window(messages_win, messages_text_win, &messages, &count, max_lines, x - 2);
 
-				} else if (ch == 'w') {
-					char data_buf[15];
-					snprintf(data_buf, sizeof(data_buf), "/data %d 2 0\n", id);
-					send(server, data_buf, strlen(data_buf), 0);
+					char leave_buf[15];
+					snprintf(leave_buf, sizeof(leave_buf), "/leave %d\n", id);
+					send(server, leave_buf, strlen(leave_buf), 0);
 
-				} else if (ch == 'a') {
+				} else if (ch == 'w') {
 					char data_buf[15];
 					snprintf(data_buf, sizeof(data_buf), "/data %d 0 2\n", id);
 					send(server, data_buf, strlen(data_buf), 0);
 
+				} else if (ch == 'a') {
+					char data_buf[15];
+					snprintf(data_buf, sizeof(data_buf), "/data %d 2 0\n", id);
+					send(server, data_buf, strlen(data_buf), 0);
+
 				} else if (ch == 's') {
 					char data_buf[15];
-					snprintf(data_buf, sizeof(data_buf), "/data %d 1 0\n", id);
+					snprintf(data_buf, sizeof(data_buf), "/data %d 0 1\n", id);
 					send(server, data_buf, strlen(data_buf), 0);
 
 				} else if (ch == 'd') {
 					char data_buf[15];
-					snprintf(data_buf, sizeof(data_buf), "/data %d 0 1\n", id);
+					snprintf(data_buf, sizeof(data_buf), "/data %d 1 0\n", id);
 					send(server, data_buf, strlen(data_buf), 0);
 				}
 			}

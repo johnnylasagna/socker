@@ -21,7 +21,7 @@ void init_socker(struct Socker *socker);
 int add_player_to_socker(struct Socker *socker, int fd);
 
 // Delete player from socker
-void delete_player(struct Socker *socker, int index);
+int delete_player(struct Socker *socker, int index);
 
 void send_player_data(struct Socker *socker);
 
