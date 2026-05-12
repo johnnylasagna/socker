@@ -142,7 +142,7 @@ void set_name(int server, char *name, size_t size) {
 }
 
 // Refresh messages window
-void refresh_messages_window(WINDOW *messages_win, WINDOW *messages_text_win, struct message **messages, int *count, int max_lines) {
+void refresh_messages_window(WINDOW *messages_win, WINDOW *messages_text_win, struct message **messages, int *count, int max_lines, int window_width) {
 	werase(messages_win);
 
 	box(messages_win, 0, 0);
@@ -159,6 +159,7 @@ void refresh_messages_window(WINDOW *messages_win, WINDOW *messages_text_win, st
 	struct message *p = *messages;
 	while (p != NULL) {
 		mvwprintw(messages_text_win, row++, 0, "%s", p->content);
+		row += strlen(p->content) / window_width;
 		p = p->next;
 	}
 
@@ -274,7 +275,7 @@ int main(int argc, char *argv[]) {
 
 			add_message(&messages, &messages_tail, buf, &count);
 
-			refresh_messages_window(messages_win, messages_text_win, &messages, &count, max_lines);
+			refresh_messages_window(messages_win, messages_text_win, &messages, &count, max_lines, x - 2);
 		}
 
 		int ch = wgetch(input_win);
@@ -322,7 +323,7 @@ int main(int argc, char *argv[]) {
 			}
 
 			refresh_input_window(input_win, input, &input_len);
-			refresh_messages_window(messages_win, messages_text_win, &messages, &count, max_lines);
+			refresh_messages_window(messages_win, messages_text_win, &messages, &count, max_lines, x - 2);
 		}
 	}
 
