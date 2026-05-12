@@ -18,6 +18,99 @@ bool debug = true;
 
 char names[__FD_SETSIZE][20];
 
+// Socker struct
+struct Socker {
+	int ball_position[2];
+
+	int player_count;
+	int player_size;
+
+	int *player_fds;
+	int (*player_positions)[2];
+};
+
+// Initialise socker
+void init_socker(struct Socker *socker) {
+
+	socker->player_count = 0;
+	socker->player_size = 10;
+
+	socker->player_fds = malloc(sizeof(int) * socker->player_size);
+
+	socker->player_positions = malloc(sizeof(int[2]) * socker->player_size);
+
+	if (socker->player_fds == NULL ||
+	    socker->player_positions == NULL) {
+		perror("malloc");
+		exit(1);
+	}
+}
+
+// Add player to socker
+int add_player_to_socker(struct Socker *socker, int fd) {
+	if (socker->player_count == socker->player_size) {
+		socker->player_size *= 2;
+		socker->player_fds = realloc(socker->player_fds, sizeof(int) * socker->player_size);
+		socker->player_positions = realloc(socker->player_positions, sizeof(int[2]) * socker->player_size);
+		if (socker->player_fds == NULL || socker->player_positions == NULL) {
+			perror("realloc");
+			exit(1);
+		}
+	}
+
+	int idx = socker->player_count;
+
+	socker->player_fds[idx] = fd;
+	socker->player_positions[idx][0] = 10;
+	socker->player_positions[idx][1] = 10;
+
+	socker->player_count++;
+
+	return socker->player_count - 1;
+}
+
+// Delete player from socker
+void delete_player(struct Socker *socker, int index) {
+	int last = socker->player_count - 1;
+
+	socker->player_fds[index] = socker->player_fds[last];
+	socker->player_positions[index][0] = socker->player_positions[last][0];
+	socker->player_positions[index][1] = socker->player_positions[last][1];
+
+	socker->player_count--;
+}
+
+void send_player_data(struct Socker *socker) {
+	char position_buf[1024];
+
+	int offset = 0;
+
+	offset += snprintf(
+	    position_buf + offset,
+	    sizeof(position_buf) - offset,
+	    "/data ball %d %d\n",
+	    socker->ball_position[0],
+	    socker->ball_position[1]);
+
+	for (int j = 0; j < socker->player_count;
+	     j++) {
+		offset += snprintf(
+		    position_buf + offset,
+		    sizeof(position_buf) - offset,
+		    "player %d %d\n",
+		    socker->player_positions[j][0],
+		    socker->player_positions[j][1]);
+	}
+
+	for (int i = 0; i < socker->player_count; i++) {
+		int dest_fd = socker->player_fds[i];
+
+		if (send(dest_fd, position_buf, offset, 0) == -1) {
+			perror("send");
+		}
+	}
+}
+
 // Get file descriptor to send whispered message to
 int get_fd_from_whispered_name(char *name_buf) {
 	for (int i = 0; i < __FD_SETSIZE; i++) {
@@ -171,7 +264,7 @@ void handle_new_connection(int listener, int *fd_count, int *fd_size, struct pol
 }
 
 // Handle client messages
-void handle_client_data(int listener, int *fd_count, struct pollfd *pfds, int *pfd_i) {
+void handle_client_data(int listener, int *fd_count, struct pollfd *pfds, int *pfd_i, struct Socker *socker) {
 	char buf[256];
 
 	int n = recv(pfds[*pfd_i].fd, buf, sizeof(buf) - 1, 0);
@@ -242,10 +335,38 @@ void handle_client_data(int listener, int *fd_count, struct pollfd *pfds, int *p
 						perror("send");
 					}
 				}
+
 			} else if (strncmp(buf, "/save", 5) == 0) {
 				char save_buf[40];
 				snprintf(save_buf, sizeof(save_buf), "%s saved the chat locally\n", names[sender_fd]);
 				send_to_all_clients(listener, fd_count, pfds, &sender_fd, save_buf, strlen(save_buf));
+
+			} else if (strncmp(buf, "/socker", 7) == 0) {
+				int id = add_player_to_socker(socker, sender_fd);
+				char id_buf[10];
+				snprintf(id_buf, sizeof(id_buf), "/data id %d\n", id);
+				send(sender_fd, id_buf, sizeof(id_buf), 0);
+
+			} else if (strncmp(buf, "/data", 5) == 0) {
+				int id;
+				int dx;
+				int dy;
+				if (sscanf(buf + 6, "%d %d %d", &id, &dx, &dy) != 3) {
+					fprintf(stderr, "malformed data received\n");
+					exit(1);
+				}
+				if (dx == 1) {
+					socker->player_positions[id][0] += 1;
+				} else if (dx == 2) {
+					socker->player_positions[id][0] -= 1;
+				}
+
+				if (dy == 1) {
+					socker->player_positions[id][1] += 1;
+				} else if (dy == 2) {
+					socker->player_positions[id][1] -= 1;
+				}
+				send_player_data(socker);
 			}
 		} else {
 			send_to_all_clients(listener, fd_count, pfds, &sender_fd, buf, strlen(buf));
@@ -254,13 +375,13 @@ void handle_client_data(int listener, int *fd_count, struct pollfd *pfds, int *p
 }
 
 // Process connections
-void process_connections(int listener, int *fd_count, int *fd_size, struct pollfd **pfds) {
+void process_connections(int listener, int *fd_count, int *fd_size, struct pollfd **pfds, struct Socker *socker) {
 	for (int i = 0; i < *fd_count; i++) {
 		if ((*pfds)[i].revents & (POLLIN | POLLHUP)) {
 			if ((*pfds)[i].fd == listener) {
 				handle_new_connection(listener, fd_count, fd_size, pfds);
 			} else {
-				handle_client_data(listener, fd_count, *pfds, &i);
+				handle_client_data(listener, fd_count, *pfds, &i, socker);
 			}
 		}
 	}
@@ -296,6 +417,11 @@ int main(int argc, char *argv[]) {
 
 	puts("pollserver: waiting for connections...");
 
+	// Socker setup
+
+	struct Socker socker;
+	init_socker(&socker);
+
 	// Main loop
 	for (;;) {
 		int poll_count = poll(pfds, fd_count, -1);
@@ -305,7 +431,7 @@ int main(int argc, char *argv[]) {
 			exit(1);
 		}
 
-		process_connections(listener, &fd_count, &fd_size, &pfds);
+		process_connections(listener, &fd_count, &fd_size, &pfds, &socker);
 	}
 
 	return 0;

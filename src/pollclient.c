@@ -73,7 +73,7 @@ int get_server_socket(const char *server_name, const char *port) {
 	return server;
 }
 
-// Linke list that gets messages
+// Linked list that gets messages
 struct message {
 	char content[512];
 	struct message *next;
@@ -100,6 +100,7 @@ void add_message(struct message **messages, struct message **messages_tail, char
 	(*count)++;
 }
 
+// Write whispered message to a buffer
 void generate_whispered_message(char *whispered_msg, size_t size, char *input) {
 	char name_buf[20];
 	size_t name_len = strcspn(input + 9, " ");
@@ -145,6 +146,7 @@ void set_name(int server, char *name, size_t size) {
 // Refresh messages window
 void refresh_messages_window(WINDOW *messages_win, WINDOW *messages_text_win, struct message **messages, int *count, int max_lines, int window_width) {
 	werase(messages_win);
+	werase(messages_text_win);
 
 	box(messages_win, 0, 0);
 
@@ -188,6 +190,14 @@ void refresh_input_window(WINDOW *input_win, char *input, int *input_len, int wi
 	wrefresh(input_win);
 }
 
+// Refresh socker window
+void refresh_socker_window(WINDOW *socker_win) {
+	werase(socker_win);
+	box(socker_win, 0, 0);
+
+	wrefresh(socker_win);
+}
+
 // Save recent chat contents
 void save_chat_contents(struct message *messages) {
 
@@ -196,7 +206,7 @@ void save_chat_contents(struct message *messages) {
 	struct tm *t = localtime(&now);
 
 	char filename[20];
-	sprintf(filename, "chat_%02d:%02d:%02d.txt", t->tm_hour, t->tm_min, t->tm_sec);
+	sprintf(filename, "chat_%02d_%02d_%02d.txt", t->tm_hour, t->tm_min, t->tm_sec);
 
 	FILE *fp = fopen(filename, "wb");
 
@@ -262,6 +272,17 @@ int main(int argc, char *argv[]) {
 	int y, x;
 	getmaxyx(stdscr, y, x);
 
+	// Socker setup
+	bool socker = false;
+	int id = 0;
+	WINDOW *socker_win = newwin(y, x, 0, 0);
+	keypad(socker_win, TRUE);
+	nodelay(socker_win, TRUE);
+	werase(socker_win);
+
+	werase(socker_win);
+	wrefresh(socker_win);
+
 	WINDOW *messages_win = newwin(y - 3, x, 0, 0);
 	WINDOW *input_win = newwin(3, x, y - 3, 0);
 	WINDOW *messages_text_win = derwin(messages_win, y - 5, x - 2, 1, 1);
@@ -288,7 +309,7 @@ int main(int argc, char *argv[]) {
 		}
 
 		if (pfd.revents & POLLIN) {
-			char buf[256];
+			char buf[1024];
 
 			int n = recv(server, buf, sizeof(buf) - 1, 0);
 
@@ -306,62 +327,137 @@ int main(int argc, char *argv[]) {
 
 			buf[n] = '\0';
 
-			add_message(&messages, &messages_tail, buf, &count);
+			if (buf[0] != '/') {
+				add_message(&messages, &messages_tail, buf, &count);
+			} else {
+				if (strncmp(buf, "/data", 5) == 0) {
+					werase(socker_win);
 
-			refresh_messages_window(messages_win, messages_text_win, &messages, &count, max_lines, x - 2);
-		}
+					box(socker_win, 0, 0);
 
-		int ch = wgetch(input_win);
+					char *line = strtok(buf, "\n");
 
-		if (ch != ERR) {
-			if (ch == '\n') {
-				if (input_len > 0) {
+					while (line != NULL) {
+						int pos_x, pos_y;
 
-					if (input[0] == '/') {
-						char msg[280];
-						snprintf(msg, sizeof(msg), "%s\n", input);
-						send(server, msg, strlen(msg), 0);
+						if (strncmp(line, "/data id", 8) == 0) {
+							if (sscanf(line + 10, "%d", &id) != 1) {
+								fprintf(stderr, "id malformed\n");
+							}
 
-						if (strncmp(input, "/whisper ", 9) == 0) {
-							char whispered_msg[300];
-							generate_whispered_message(whispered_msg, sizeof(whispered_msg), input);
-							add_message(&messages, &messages_tail, whispered_msg, &count);
-						} else if (strncmp(input, "/save", 5) == 0) {
-							save_chat_contents(messages);
+						} else if (strncmp(line, "/data ball", 10) == 0) {
+							if (sscanf(line + 13, "%d %d", &pos_x, &pos_y) == 2) {
+								mvwprintw(socker_win, pos_y, pos_x, "O");
+							}
+
+						} else if (strncmp(line, "player", 6) == 0) {
+							if (sscanf(line + 8, "%d %d", &pos_x, &pos_y) == 2) {
+								mvwprintw(socker_win, pos_y, pos_x, "X");
+							}
 						}
 
-					} else {
-						char msg[280];
-						snprintf(msg, sizeof(msg), "%s:%s\n", name, input);
-						send(server, msg, strlen(msg), 0);
-
-						char messages_msg[280];
-						snprintf(messages_msg, sizeof(messages_msg), "You:%s\n", input);
-
-						add_message(&messages, &messages_tail, messages_msg, &count);
+						line = strtok(NULL, "\n");
 					}
 
-					input_len = 0;
-					input[0] = '\0';
-				}
-			} else if (ch == KEY_BACKSPACE || ch == 127 || ch == 8) {
-				if (input_len > 0) {
-					input_len--;
-
-					input[input_len] = '\0';
-				}
-			} else {
-				if (input_len < 255) {
-					input[input_len++] = ch;
-					input[input_len] = '\0';
+					wrefresh(socker_win);
 				}
 			}
 
-			refresh_input_window(input_win, input, &input_len, x - 2);
-			refresh_messages_window(messages_win, messages_text_win, &messages, &count, max_lines, x - 2);
+			if (!socker) {
+				refresh_messages_window(messages_win, messages_text_win, &messages, &count, max_lines, x - 2);
+			}
+		}
+
+		int ch;
+
+		if (!socker) {
+			ch = wgetch(input_win);
+		} else {
+			ch = wgetch(socker_win);
+		}
+
+		if (!socker) {
+			if (ch != ERR) {
+				if (ch == '\n') {
+					if (input_len > 0) {
+
+						if (input[0] == '/') {
+							char msg[280];
+							snprintf(msg, sizeof(msg), "%s\n", input);
+							send(server, msg, strlen(msg), 0);
+
+							if (strncmp(input, "/whisper ", 9) == 0) {
+								char whispered_msg[300];
+								generate_whispered_message(whispered_msg, sizeof(whispered_msg), input);
+								add_message(&messages, &messages_tail, whispered_msg, &count);
+
+							} else if (strncmp(input, "/save", 5) == 0) {
+								save_chat_contents(messages);
+
+							} else if (strncmp(input, "/socker", 7) == 0) {
+								socker = true;
+							}
+
+						} else {
+							char msg[280];
+							snprintf(msg, sizeof(msg), "%s:%s\n", name, input);
+							send(server, msg, strlen(msg), 0);
+
+							char messages_msg[280];
+							snprintf(messages_msg, sizeof(messages_msg), "You:%s\n", input);
+
+							add_message(&messages, &messages_tail, messages_msg, &count);
+						}
+
+						input_len = 0;
+						input[0] = '\0';
+					}
+				} else if (ch == KEY_BACKSPACE || ch == 127 || ch == 8) {
+					if (input_len > 0) {
+						input_len--;
+
+						input[input_len] = '\0';
+					}
+				} else {
+					if (input_len < 255) {
+						input[input_len++] = ch;
+						input[input_len] = '\0';
+					}
+				}
+
+				if (!socker) {
+					refresh_input_window(input_win, input, &input_len, x - 2);
+					refresh_messages_window(messages_win, messages_text_win, &messages, &count, max_lines, x - 2);
+				}
+			}
+		} else if (socker) {
+			if (ch != ERR) {
+				if (ch == 'q') {
+					socker = false;
+
+				} else if (ch == 'w') {
+					char data_buf[15];
+					snprintf(data_buf, sizeof(data_buf), "/data %d 2 0\n", id);
+					send(server, data_buf, strlen(data_buf), 0);
+
+				} else if (ch == 'a') {
+					char data_buf[15];
+					snprintf(data_buf, sizeof(data_buf), "/data %d 0 2\n", id);
+					send(server, data_buf, strlen(data_buf), 0);
+
+				} else if (ch == 's') {
+					char data_buf[15];
+					snprintf(data_buf, sizeof(data_buf), "/data %d 1 0\n", id);
+					send(server, data_buf, strlen(data_buf), 0);
+
+				} else if (ch == 'd') {
+					char data_buf[15];
+					snprintf(data_buf, sizeof(data_buf), "/data %d 0 1\n", id);
+					send(server, data_buf, strlen(data_buf), 0);
+				}
+			}
 		}
 	}
-
 	endwin();
 	close(server);
 
