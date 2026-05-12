@@ -25,6 +25,9 @@ void init_socker(struct Socker *socker) {
 		perror("malloc");
 		exit(1);
 	}
+
+	socker->ball_position[0] = 10;
+	socker->ball_position[1] = 10;
 }
 
 // Add player to socker

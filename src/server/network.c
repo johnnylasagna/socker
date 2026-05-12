@@ -209,6 +209,11 @@ void handle_client_data(int listener, int *fd_count, struct pollfd *pfds, int *p
 				char id_buf[22];
 				snprintf(id_buf, sizeof(id_buf), "/data id %d\n", id);
 				send(sender_fd, id_buf, sizeof(id_buf), 0);
+
+				char socker_buf[40];
+				snprintf(socker_buf, sizeof(socker_buf), "%s joined socker\n", names[sender_fd]);
+				send_to_all_clients(listener, fd_count, pfds, &sender_fd, socker_buf, strlen(socker_buf));
+
 				send_player_data(socker);
 
 			} else if (strncmp(buf, "/data", 5) == 0) {
@@ -231,6 +236,24 @@ void handle_client_data(int listener, int *fd_count, struct pollfd *pfds, int *p
 				} else if (dy == 2) {
 					socker->player_positions[id][1] -= 1;
 				}
+
+				if (socker->player_positions[id][0] == socker->ball_position[0] &&
+				    socker->player_positions[id][1] == socker->ball_position[1]) {
+					if (dx == 1) {
+						socker->ball_position[0] += 1;
+
+					} else if (dx == 2) {
+						socker->ball_position[0] -= 1;
+					}
+
+					if (dy == 1) {
+						socker->ball_position[1] += 1;
+
+					} else if (dy == 2) {
+						socker->ball_position[1] -= 1;
+					}
+				}
+
 				send_player_data(socker);
 
 			} else if (strncmp(buf, "/leave", 6) == 0) {
