@@ -69,24 +69,39 @@ int main(int argc, char *argv[]) {
 	getmaxyx(stdscr, y, x);
 
 	// Socker setup
-	bool socker = false;
 	int id = 0;
 	WINDOW *socker_win = newwin(y, x, 0, 0);
 	keypad(socker_win, TRUE);
 	nodelay(socker_win, TRUE);
 	werase(socker_win);
 
+	bool socker = false;
+
 	werase(socker_win);
 	wrefresh(socker_win);
 
+	// Messages setup
 	WINDOW *messages_win = newwin(y - 3, x, 0, 0);
 	WINDOW *input_win = newwin(3, x, y - 3, 0);
 	WINDOW *messages_text_win = derwin(messages_win, y - 5, x - 2, 1, 1);
 	int max_lines = y - 5;
 
+	bool show_messages = true;
+
 	keypad(input_win, TRUE);
 	nodelay(input_win, TRUE);
 
+	// Help setup
+	WINDOW *help_win = newwin(y, x, 0, 0);
+	keypad(help_win, TRUE);
+	nodelay(help_win, TRUE);
+
+	bool help = false;
+
+	werase(help_win);
+	wrefresh(help_win);
+
+	// Initial screen clear
 	werase(messages_win);
 	box(messages_win, 0, 0);
 	wrefresh(messages_win);
@@ -159,20 +174,22 @@ int main(int argc, char *argv[]) {
 				}
 			}
 
-			if (!socker) {
+			if (show_messages) {
 				refresh_messages_window(messages_win, messages_text_win, &messages, &count, max_lines, x - 2);
 			}
 		}
 
 		int ch;
 
-		if (!socker) {
+		if (show_messages) {
 			ch = wgetch(input_win);
-		} else {
+		} else if (socker) {
 			ch = wgetch(socker_win);
+		} else if (help) {
+			ch = wgetch(help_win);
 		}
 
-		if (!socker) {
+		if (show_messages) {
 			if (ch != ERR) {
 				if (ch == '\n') {
 					if (input_len > 0) {
@@ -182,7 +199,10 @@ int main(int argc, char *argv[]) {
 							snprintf(msg, sizeof(msg), "%s\n", input);
 							send(server, msg, strlen(msg), 0);
 
-							if (strncmp(input, "/whisper ", 9) == 0) {
+							if (strncmp(input, "/name", 5) == 0) {
+								sscanf(input + strlen("/name "), "%s", name);
+
+							} else if (strncmp(input, "/whisper ", 9) == 0) {
 								char whispered_msg[300];
 								generate_whispered_message(whispered_msg, sizeof(whispered_msg), input);
 								add_message(&messages, &messages_tail, whispered_msg, &count);
@@ -192,12 +212,25 @@ int main(int argc, char *argv[]) {
 
 							} else if (strncmp(input, "/socker", 7) == 0) {
 								socker = true;
+								show_messages = false;
+
 								werase(messages_win);
 								werase(messages_text_win);
 								werase(input_win);
 								wrefresh(messages_win);
 								wrefresh(messages_text_win);
 								wrefresh(input_win);
+
+							} else if (strncmp(input, "/help", 5) == 0) {
+								werase(messages_win);
+								werase(messages_text_win);
+								werase(input_win);
+								wrefresh(messages_win);
+								wrefresh(messages_text_win);
+								wrefresh(input_win);
+								draw_help_window(help_win);
+								help = true;
+								show_messages = false;
 							}
 
 						} else {
@@ -227,7 +260,7 @@ int main(int argc, char *argv[]) {
 					}
 				}
 
-				if (!socker) {
+				if (show_messages) {
 					refresh_input_window(input_win, input, &input_len, x - 2);
 					refresh_messages_window(messages_win, messages_text_win, &messages, &count, max_lines, x - 2);
 				}
@@ -236,6 +269,7 @@ int main(int argc, char *argv[]) {
 			if (ch != ERR) {
 				if (ch == 'q') {
 					socker = false;
+					show_messages = true;
 					werase(socker_win);
 					wrefresh(socker_win);
 					refresh_input_window(input_win, input, &input_len, x - 2);
@@ -264,6 +298,15 @@ int main(int argc, char *argv[]) {
 					char data_buf[15];
 					snprintf(data_buf, sizeof(data_buf), "/data %d 1 0\n", id);
 					send(server, data_buf, strlen(data_buf), 0);
+				}
+			}
+		} else if (help) {
+			if (ch != ERR) {
+				if (ch == 'q') {
+					show_messages = true;
+					help = false;
+					refresh_input_window(input_win, input, &input_len, x - 2);
+					refresh_messages_window(messages_win, messages_text_win, &messages, &count, max_lines, x - 2);
 				}
 			}
 		}

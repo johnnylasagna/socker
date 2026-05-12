@@ -19,4 +19,7 @@ void refresh_input_window(WINDOW *input_win, char *input, int *input_len, int wi
 // Refresh socker window
 void refresh_socker_window(WINDOW *socker_win);
 
+// Draw help window once
+void draw_help_window(WINDOW *help_win);
+
 #endif // CLIENT_TERMINAL_H

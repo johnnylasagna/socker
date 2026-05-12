@@ -3,3 +3,5 @@ Change send to sendall just in case
 Implement Socker
 Also print names of players on field if possible, make a toggle for that
 Server send things as /data
+
+add an error window

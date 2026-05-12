@@ -7,7 +7,7 @@
             "args": [
                 "-fdiagnostics-color=always",
                 "-g",
-                "${workspaceFolder}/src/${fileBasename}",
+                "${fileDirname}/*.c",
                 "-lncurses",
                 "-o",
                 "${workspaceFolder}/bin/${fileBasenameNoExtension}"

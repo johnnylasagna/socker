@@ -61,3 +61,19 @@ void refresh_socker_window(WINDOW *socker_win) {
 
 	wrefresh(socker_win);
 }
+
+// Draw help window once
+void draw_help_window(WINDOW *help_win) {
+	werase(help_win);
+
+	char help_buf[] = " /socker starts a socker game with you friends\n"
+	                  " /whisper <name> <message> allows you to send a message privately to another person in the chat\n"
+	                  " /name <name> allows you to change your name\n"
+	                  " /save allows you to save recent chat history locally\n"
+	                  " /help opens the help section\n";
+
+	mvwprintw(help_win, 0, 0, help_buf);
+	box(help_win, 0, 0);
+
+	wrefresh(help_win);
+}
