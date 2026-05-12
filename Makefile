@@ -1,18 +1,31 @@
-SRC_DIR := src
-BIN_DIR := bin
-SRC_FILES := $(wildcard $(SRC_DIR)/*.c)
-BIN_FILES := $(patsubst $(SRC_DIR)/%.c,$(BIN_DIR)/%, $(SRC_FILES))
-
 CC := gcc
-CFLAGS := -g -Wall -O2 -lncurses
 
-all: $(BIN_FILES)
+CFLAGS := -Wall -Wextra -g -O2
 
-$(BIN_DIR)/%: $(SRC_DIR)/%.c | $(BIN_DIR)
-	$(CC) $(CFLAGS) $< -o $@
+LDLIBS := -lncurses
+
+SRC_DIR := src
+INC_DIR := include
+BIN_DIR := bin
+
+CLIENT_SRC := $(wildcard $(SRC_DIR)/client/*.c)
+SERVER_SRC := $(wildcard $(SRC_DIR)/server/*.c)
+
+CLIENT_BIN := $(BIN_DIR)/client
+SERVER_BIN := $(BIN_DIR)/server
+
+all: $(CLIENT_BIN) $(SERVER_BIN)
+
+$(CLIENT_BIN): $(CLIENT_SRC) | $(BIN_DIR)
+	$(CC) $(CFLAGS) $^ -o $@ $(LDLIBS)
+
+$(SERVER_BIN): $(SERVER_SRC) | $(BIN_DIR)
+	$(CC) $(CFLAGS) $^ -o $@
 
 $(BIN_DIR):
 	mkdir -p $(BIN_DIR)
 
 clean:
-	rm -f $(BIN_DIR)/*
+	rm -rf $(BIN_DIR)
+
+.PHONY: all clean

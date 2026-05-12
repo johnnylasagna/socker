@@ -1,154 +1,4 @@
-#include <arpa/inet.h>
-#include <errno.h>
-#include <netdb.h>
-#include <netinet/in.h>
-#include <poll.h>
-#include <signal.h>
-#include <stdbool.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <unistd.h>
-
-#define BACKLOG 10
-bool debug = true;
-
-char names[__FD_SETSIZE][20];
-
-// Socker struct
-struct Socker {
-	int ball_position[2];
-
-	int player_count;
-	int player_size;
-
-	int *player_fds;
-	int (*player_positions)[2];
-};
-
-// Initialise socker
-void init_socker(struct Socker *socker) {
-
-	socker->player_count = 0;
-	socker->player_size = 10;
-
-	socker->player_fds = malloc(sizeof(int) * socker->player_size);
-
-	socker->player_positions = malloc(sizeof(int[2]) * socker->player_size);
-
-	if (socker->player_fds == NULL ||
-	    socker->player_positions == NULL) {
-		perror("malloc");
-		exit(1);
-	}
-}
-
-// Add player to socker
-int add_player_to_socker(struct Socker *socker, int fd) {
-	if (socker->player_count == socker->player_size) {
-		socker->player_size *= 2;
-		socker->player_fds = realloc(socker->player_fds, sizeof(int) * socker->player_size);
-		socker->player_positions = realloc(socker->player_positions, sizeof(int[2]) * socker->player_size);
-		if (socker->player_fds == NULL || socker->player_positions == NULL) {
-			perror("realloc");
-			exit(1);
-		}
-	}
-
-	int idx = socker->player_count;
-
-	socker->player_fds[idx] = fd;
-	socker->player_positions[idx][0] = 10;
-	socker->player_positions[idx][1] = 10;
-
-	socker->player_count++;
-
-	return socker->player_count - 1;
-}
-
-// Delete player from socker
-void delete_player(struct Socker *socker, int index) {
-	int last = socker->player_count - 1;
-
-	socker->player_fds[index] = socker->player_fds[last];
-	socker->player_positions[index][0] = socker->player_positions[last][0];
-	socker->player_positions[index][1] = socker->player_positions[last][1];
-
-	socker->player_count--;
-}
-
-void send_player_data(struct Socker *socker) {
-	char position_buf[1024];
-
-	int offset = 0;
-
-	offset += snprintf(
-	    position_buf + offset,
-	    sizeof(position_buf) - offset,
-	    "/data ball %d %d\n",
-	    socker->ball_position[0],
-	    socker->ball_position[1]);
-
-	for (int j = 0; j < socker->player_count;
-	     j++) {
-		offset += snprintf(
-		    position_buf + offset,
-		    sizeof(position_buf) - offset,
-		    "player %d %d\n",
-		    socker->player_positions[j][0],
-		    socker->player_positions[j][1]);
-	}
-
-	for (int i = 0; i < socker->player_count; i++) {
-		int dest_fd = socker->player_fds[i];
-
-		if (send(dest_fd, position_buf, offset, 0) == -1) {
-			perror("send");
-		}
-	}
-}
-
-// Get file descriptor to send whispered message to
-int get_fd_from_whispered_name(char *name_buf) {
-	for (int i = 0; i < __FD_SETSIZE; i++) {
-		if (strcmp(names[i], name_buf) == 0) {
-			return i;
-		}
-	}
-	return -1;
-}
-
-// Write whispered message
-void write_whispered_message(char *buf, char *whisper_msg_with_name, int size, int name_len, int *sender_fd) {
-	const char *msg_start = buf + name_len + 10;
-	size_t msg_len = strlen(msg_start);
-
-	char whisper_msg[256];
-	if (msg_len >= sizeof(whisper_msg)) {
-		msg_len = sizeof(whisper_msg) - 1;
-	}
-
-	memcpy(whisper_msg, msg_start, msg_len);
-	whisper_msg[msg_len] = '\0';
-
-	snprintf(whisper_msg_with_name, size, "(%s) %s", names[*sender_fd], whisper_msg);
-}
-
-// Send to all other clients
-void send_to_all_clients(int listener, int *fd_count, struct pollfd *pfds, int *sender_fd, char *buf, size_t size) {
-	for (int j = 0; j < *fd_count; j++) {
-		int dest_fd = pfds[j].fd;
-
-		if (dest_fd != listener && dest_fd != *sender_fd) {
-			if (send(dest_fd, buf, size, 0) == -1) {
-				perror("send");
-			}
-		}
-	}
-}
+#include "../../include/server/network.h"
 
 // Convert IP address into printable format
 const char *inet_ntop2(void *addr, char *buf, size_t size) {
@@ -221,6 +71,19 @@ int get_listener_socket(const char *port) {
 	}
 
 	return listener;
+}
+
+// Send to all other clients
+void send_to_all_clients(int listener, int *fd_count, struct pollfd *pfds, int *sender_fd, char *buf, size_t size) {
+	for (int j = 0; j < *fd_count; j++) {
+		int dest_fd = pfds[j].fd;
+
+		if (dest_fd != listener && dest_fd != *sender_fd) {
+			if (send(dest_fd, buf, size, 0) == -1) {
+				perror("send");
+			}
+		}
+	}
 }
 
 // Add connected client to list
@@ -343,7 +206,7 @@ void handle_client_data(int listener, int *fd_count, struct pollfd *pfds, int *p
 
 			} else if (strncmp(buf, "/socker", 7) == 0) {
 				int id = add_player_to_socker(socker, sender_fd);
-				char id_buf[10];
+				char id_buf[22];
 				snprintf(id_buf, sizeof(id_buf), "/data id %d\n", id);
 				send(sender_fd, id_buf, sizeof(id_buf), 0);
 
@@ -385,54 +248,4 @@ void process_connections(int listener, int *fd_count, int *fd_size, struct pollf
 			}
 		}
 	}
-}
-
-int main(int argc, char *argv[]) {
-
-	// Listener setup
-	int listener;
-
-	int fd_size = 10;
-	int fd_count = 0;
-	struct pollfd *pfds = malloc(sizeof *pfds * fd_size);
-
-	if (argc != 2) {
-		fprintf(stderr, "Usage: pollserver <port>");
-		exit(1);
-	}
-
-	const char *port = argv[1];
-
-	listener = get_listener_socket(port);
-
-	if (listener == -1) {
-		fprintf(stderr, "error getting listening socket\n");
-		exit(1);
-	}
-
-	pfds[0].fd = listener;
-	pfds[0].events = POLLIN;
-
-	fd_count = 1;
-
-	puts("pollserver: waiting for connections...");
-
-	// Socker setup
-
-	struct Socker socker;
-	init_socker(&socker);
-
-	// Main loop
-	for (;;) {
-		int poll_count = poll(pfds, fd_count, -1);
-
-		if (poll_count == -1) {
-			perror("poll");
-			exit(1);
-		}
-
-		process_connections(listener, &fd_count, &fd_size, &pfds, &socker);
-	}
-
-	return 0;
 }

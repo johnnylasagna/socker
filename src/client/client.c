@@ -14,214 +14,10 @@
 #include <time.h>
 #include <unistd.h>
 
-// To handle user pressing ctrl+c or ctrl+v to end program
-void handle_sigint(int sig) {
-	endwin();
-	printf("\nDisconnected from chatroom.\n");
-	exit(0);
-}
-
-// Getting address regardless of ipv6 or ipv4
-void *get_in_addr(struct sockaddr *sa) {
-	if (sa->sa_family == AF_INET) {
-		return &(((struct sockaddr_in *)sa)->sin_addr);
-	} else {
-		return &(((struct sockaddr_in6 *)sa)->sin6_addr);
-	}
-}
-
-// Getting server socket from ip and port
-int get_server_socket(const char *server_name, const char *port) {
-	int server;
-	int rv;
-
-	struct addrinfo hints, *ai, *p;
-	char s[INET6_ADDRSTRLEN];
-
-	memset(&hints, 0, sizeof hints);
-	hints.ai_family = AF_INET;
-	hints.ai_socktype = SOCK_STREAM;
-
-	if ((rv = getaddrinfo(server_name, port, &hints, &ai)) != 0) {
-		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
-		return -1;
-	}
-
-	for (p = ai; p != NULL; p = p->ai_next) {
-		if ((server = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) ==
-		    -1) {
-			perror("client: socket");
-			continue;
-		}
-		inet_ntop(p->ai_family, get_in_addr((struct sockaddr *)p->ai_addr), s, sizeof s);
-		printf("client: attempting connection to %s\n", s);
-		if (connect(server, p->ai_addr, p->ai_addrlen) == -1) {
-			perror("client:connect");
-			close(server);
-			continue;
-		}
-		break;
-	}
-
-	if (p == NULL) {
-		fprintf(stderr, "client: failed to connect\n");
-		return -1;
-	}
-
-	freeaddrinfo(ai);
-
-	return server;
-}
-
-// Linked list that gets messages
-struct message {
-	char content[512];
-	struct message *next;
-};
-
-// Add message to message linked list
-void add_message(struct message **messages, struct message **messages_tail, char *msg, int *count) {
-	struct message *new_msg = malloc(sizeof(struct message));
-	if (new_msg == NULL) {
-		perror("Failed to allocate memory for new message");
-		return;
-	}
-
-	snprintf(new_msg->content, sizeof(new_msg->content), "%s", msg);
-	new_msg->next = NULL;
-
-	if (*messages == NULL) {
-		*messages = new_msg;
-		*messages_tail = new_msg;
-	} else {
-		(*messages_tail)->next = new_msg;
-		*messages_tail = new_msg;
-	}
-	(*count)++;
-}
-
-// Write whispered message to a buffer
-void generate_whispered_message(char *whispered_msg, size_t size, char *input) {
-	char name_buf[20];
-	size_t name_len = strcspn(input + 9, " ");
-
-	if (name_len >= sizeof(name_buf)) {
-		name_len = sizeof(name_buf) - 1;
-	}
-
-	memcpy(name_buf, input + 9, name_len);
-	name_buf[name_len] = '\0';
-
-	char whispered_to[] = "whispered to ";
-
-	snprintf(whispered_msg, size, "(%s%s) %s", whispered_to, name_buf, input + 9 + name_len + 1);
-}
-
-// Send message to server to store name on initial join
-int send_join_message(int server, char *name) {
-	char com_buf[27];
-	strcpy(com_buf, "/name ");
-	strcpy(com_buf + 6, name);
-	if (send(server, com_buf, strlen(com_buf), 0) == -1) {
-		return -2;
-	}
-
-	return 0;
-}
-
-// Set name locally and on server
-void set_name(int server, char *name, size_t size) {
-	printf("Enter name to connect to chatroom with: ");
-	fgets(name, size, stdin);
-
-	if (send_join_message(server, name) == -2) {
-		fprintf(stderr, "error sending joining message\n");
-		exit(1);
-	}
-
-	int pos = strcspn(name, "\n");
-	name[pos] = '\0';
-}
-
-// Refresh messages window
-void refresh_messages_window(WINDOW *messages_win, WINDOW *messages_text_win, struct message **messages, int *count, int max_lines, int window_width) {
-	werase(messages_win);
-	werase(messages_text_win);
-
-	box(messages_win, 0, 0);
-
-	while (*count > max_lines) {
-		struct message *temp = *messages;
-		(*messages) = (*messages)->next;
-		free(temp);
-		(*count)--;
-	}
-
-	int row = 0;
-
-	struct message *p = *messages;
-	while (p != NULL) {
-		mvwprintw(messages_text_win, row++, 0, "%s", p->content);
-		row += strlen(p->content) / window_width;
-		p = p->next;
-	}
-
-	wrefresh(messages_win);
-	wrefresh(messages_text_win);
-}
-
-// Refresh message window
-void refresh_input_window(WINDOW *input_win, char *input, int *input_len, int window_width) {
-	werase(input_win);
-
-	box(input_win, 0, 0);
-
-	size_t offset = *input_len / (window_width - 2);
-	size_t remaining_input = *input_len % (window_width - 2);
-
-	if (remaining_input == 0 && offset != 0) {
-		mvwprintw(input_win, 1, 1, "> %s", input + (offset - 1) * (window_width - 2));
-		wmove(input_win, 1, 3 + window_width - 2);
-	} else {
-		wmove(input_win, 1, 3 + remaining_input);
-		mvwprintw(input_win, 1, 1, "> %s", input + offset * (window_width - 2));
-	}
-
-	wrefresh(input_win);
-}
-
-// Refresh socker window
-void refresh_socker_window(WINDOW *socker_win) {
-	werase(socker_win);
-	box(socker_win, 0, 0);
-
-	wrefresh(socker_win);
-}
-
-// Save recent chat contents
-void save_chat_contents(struct message *messages) {
-
-	time_t now = time(NULL);
-
-	struct tm *t = localtime(&now);
-
-	char filename[20];
-	sprintf(filename, "chat_%02d_%02d_%02d.txt", t->tm_hour, t->tm_min, t->tm_sec);
-
-	FILE *fp = fopen(filename, "wb");
-
-	if (fp == NULL) {
-		perror("fopen");
-		exit(1);
-	}
-
-	struct message *p = messages;
-	while (p != NULL) {
-		fwrite(p->content, sizeof(char), strlen(p->content), fp);
-		p = p->next;
-	}
-	fclose(fp);
-}
+#include "../../include/client/buffers.h"
+#include "../../include/client/messages.h"
+#include "../../include/client/network.h"
+#include "../../include/client/terminal.h"
 
 int main(int argc, char *argv[]) {
 
@@ -396,6 +192,12 @@ int main(int argc, char *argv[]) {
 
 							} else if (strncmp(input, "/socker", 7) == 0) {
 								socker = true;
+								werase(messages_win);
+								werase(messages_text_win);
+								werase(input_win);
+								wrefresh(messages_win);
+								wrefresh(messages_text_win);
+								wrefresh(input_win);
 							}
 
 						} else {
@@ -434,6 +236,10 @@ int main(int argc, char *argv[]) {
 			if (ch != ERR) {
 				if (ch == 'q') {
 					socker = false;
+					werase(socker_win);
+					wrefresh(socker_win);
+					refresh_input_window(input_win, input, &input_len, x - 2);
+					refresh_messages_window(messages_win, messages_text_win, &messages, &count, max_lines, x - 2);
 
 				} else if (ch == 'w') {
 					char data_buf[15];
