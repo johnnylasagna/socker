@@ -242,6 +242,10 @@ void handle_client_data(int listener, int *fd_count, struct pollfd *pfds, int *p
 						perror("send");
 					}
 				}
+			} else if (strncmp(buf, "/save", 5) == 0) {
+				char save_buf[40];
+				snprintf(save_buf, sizeof(save_buf), "%s saved the chat locally\n", names[sender_fd]);
+				send_to_all_clients(listener, fd_count, pfds, &sender_fd, save_buf, strlen(save_buf));
 			}
 		} else {
 			send_to_all_clients(listener, fd_count, pfds, &sender_fd, buf, strlen(buf));
@@ -249,6 +253,7 @@ void handle_client_data(int listener, int *fd_count, struct pollfd *pfds, int *p
 	}
 }
 
+// Process connections
 void process_connections(int listener, int *fd_count, int *fd_size, struct pollfd **pfds) {
 	for (int i = 0; i < *fd_count; i++) {
 		if ((*pfds)[i].revents & (POLLIN | POLLHUP)) {

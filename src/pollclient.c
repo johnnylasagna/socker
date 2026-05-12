@@ -11,6 +11,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <time.h>
 #include <unistd.h>
 
 // To handle user pressing ctrl+c or ctrl+v to end program
@@ -187,6 +188,31 @@ void refresh_input_window(WINDOW *input_win, char *input, int *input_len, int wi
 	wrefresh(input_win);
 }
 
+// Save recent chat contents
+void save_chat_contents(struct message *messages) {
+
+	time_t now = time(NULL);
+
+	struct tm *t = localtime(&now);
+
+	char filename[20];
+	sprintf(filename, "chat_%02d:%02d:%02d.txt", t->tm_hour, t->tm_min, t->tm_sec);
+
+	FILE *fp = fopen(filename, "wb");
+
+	if (fp == NULL) {
+		perror("fopen");
+		exit(1);
+	}
+
+	struct message *p = messages;
+	while (p != NULL) {
+		fwrite(p->content, sizeof(char), strlen(p->content), fp);
+		p = p->next;
+	}
+	fclose(fp);
+}
+
 int main(int argc, char *argv[]) {
 
 	// Server Setup
@@ -300,6 +326,8 @@ int main(int argc, char *argv[]) {
 							char whispered_msg[300];
 							generate_whispered_message(whispered_msg, sizeof(whispered_msg), input);
 							add_message(&messages, &messages_tail, whispered_msg, &count);
+						} else if (strncmp(input, "/save", 5) == 0) {
+							save_chat_contents(messages);
 						}
 
 					} else {
