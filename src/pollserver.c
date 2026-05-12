@@ -28,6 +28,22 @@ int get_fd_from_whispered_name(char *name_buf) {
 	return -1;
 }
 
+// Write whispered message
+void write_whispered_message(char *buf, char *whisper_msg_with_name, int size, int name_len, int *sender_fd) {
+	const char *msg_start = buf + name_len + 10;
+	size_t msg_len = strlen(msg_start);
+
+	char whisper_msg[256];
+	if (msg_len >= sizeof(whisper_msg)) {
+		msg_len = sizeof(whisper_msg) - 1;
+	}
+
+	memcpy(whisper_msg, msg_start, msg_len);
+	whisper_msg[msg_len] = '\0';
+
+	snprintf(whisper_msg_with_name, size, "(%s) %s", names[*sender_fd], whisper_msg);
+}
+
 // Send to all other clients
 void send_to_all_clients(int listener, int *fd_count, struct pollfd *pfds, int *sender_fd, char *buf, size_t size) {
 	for (int j = 0; j < *fd_count; j++) {
@@ -205,6 +221,9 @@ void handle_client_data(int listener, int *fd_count, struct pollfd *pfds, int *p
 				send_to_all_clients(listener, fd_count, pfds, &sender_fd, name_buf, strlen(name_buf));
 
 			} else if (strncmp(buf, "/whisper ", 9) == 0) {
+				char whisper_msg_with_name[280];
+				size_t whisper_msg_with_name_size = sizeof(whisper_msg_with_name);
+
 				char name_buf[20];
 				size_t name_len = strcspn(buf + 9, " ");
 
@@ -215,19 +234,7 @@ void handle_client_data(int listener, int *fd_count, struct pollfd *pfds, int *p
 				memcpy(name_buf, buf + 9, name_len);
 				name_buf[name_len] = '\0';
 
-				const char *msg_start = buf + name_len + 10;
-				size_t msg_len = strlen(msg_start);
-
-				char whisper_msg[256];
-				if (msg_len >= sizeof(whisper_msg)) {
-					msg_len = sizeof(whisper_msg) - 1;
-				}
-
-				memcpy(whisper_msg, msg_start, msg_len);
-				whisper_msg[msg_len] = '\0';
-
-				char whisper_msg_with_name[280];
-				snprintf(whisper_msg_with_name, sizeof(whisper_msg_with_name), "(%s) %s", names[sender_fd], whisper_msg);
+				write_whispered_message(buf, whisper_msg_with_name, whisper_msg_with_name_size, name_len, &sender_fd);
 
 				int whispered_fd = get_fd_from_whispered_name(name_buf);
 				if (whispered_fd != -1) {

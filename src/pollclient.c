@@ -86,7 +86,7 @@ void add_message(struct message **messages, struct message **messages_tail, char
 		return;
 	}
 
-	snprintf(new_msg->content, sizeof(new_msg->content), "%s\n", msg);
+	snprintf(new_msg->content, sizeof(new_msg->content), "%s", msg);
 	new_msg->next = NULL;
 
 	if (*messages == NULL) {
@@ -142,7 +142,7 @@ void set_name(int server, char *name, size_t size) {
 }
 
 // Refresh messages window
-void refresh_messages_window(WINDOW *messages_win, struct message **messages, int *count, int max_lines) {
+void refresh_messages_window(WINDOW *messages_win, WINDOW *messages_text_win, struct message **messages, int *count, int max_lines) {
 	werase(messages_win);
 
 	box(messages_win, 0, 0);
@@ -154,15 +154,16 @@ void refresh_messages_window(WINDOW *messages_win, struct message **messages, in
 		(*count)--;
 	}
 
-	int row = 1;
+	int row = 0;
 
 	struct message *p = *messages;
 	while (p != NULL) {
-		mvwprintw(messages_win, row++, 1, "%s", p->content);
+		mvwprintw(messages_text_win, row++, 0, "%s", p->content);
 		p = p->next;
 	}
 
 	wrefresh(messages_win);
+	wrefresh(messages_text_win);
 }
 
 // Refresh message window
@@ -229,6 +230,7 @@ int main(int argc, char *argv[]) {
 
 	WINDOW *messages_win = newwin(y - 3, x, 0, 0);
 	WINDOW *input_win = newwin(3, x, y - 3, 0);
+	WINDOW *messages_text_win = derwin(messages_win, y - 5, x - 2, 1, 1);
 	int max_lines = y - 5;
 
 	keypad(input_win, TRUE);
@@ -272,7 +274,7 @@ int main(int argc, char *argv[]) {
 
 			add_message(&messages, &messages_tail, buf, &count);
 
-			refresh_messages_window(messages_win, &messages, &count, max_lines);
+			refresh_messages_window(messages_win, messages_text_win, &messages, &count, max_lines);
 		}
 
 		int ch = wgetch(input_win);
@@ -320,7 +322,7 @@ int main(int argc, char *argv[]) {
 			}
 
 			refresh_input_window(input_win, input, &input_len);
-			refresh_messages_window(messages_win, &messages, &count, max_lines);
+			refresh_messages_window(messages_win, messages_text_win, &messages, &count, max_lines);
 		}
 	}
 
