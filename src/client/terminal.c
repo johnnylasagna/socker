@@ -55,11 +55,46 @@ void refresh_input_window(WINDOW *input_win, char *input, int *input_len, int wi
 }
 
 // Refresh socker window
-void refresh_socker_window(WINDOW *socker_win) {
+void refresh_socker_window(WINDOW *socker_win, char *buf, int *id) {
 	werase(socker_win);
+
 	box(socker_win, 0, 0);
 
+	char *line = strtok(buf, "\n");
+
+	while (line != NULL) {
+		int pos_x, pos_y;
+
+		if (strncmp(line, "/data id", strlen("/data id")) == 0) {
+			if (sscanf(line + strlen("/data id"), "%d", id) != 1) {
+				fprintf(stderr, "id malformed\n");
+			}
+
+		} else if (strncmp(line, "/data ball", strlen("/data ball")) == 0) {
+			if (sscanf(line + strlen("/data ball"), "%d %d", &pos_x, &pos_y) == 2) {
+				mvwprintw(socker_win, pos_y, pos_x, "O");
+			}
+
+		} else if (strncmp(line, "player", strlen("player")) == 0) {
+			if (sscanf(line + strlen("player"), "%d %d", &pos_x, &pos_y) == 2) {
+				mvwprintw(socker_win, pos_y, pos_x, "X");
+			}
+		}
+
+		line = strtok(NULL, "\n");
+	}
+
 	wrefresh(socker_win);
+}
+
+// Hide message window
+void hide_message_windows(WINDOW *messages_win, WINDOW *messages_text_win, WINDOW *input_win) {
+	werase(messages_win);
+	werase(messages_text_win);
+	werase(input_win);
+	wrefresh(messages_win);
+	wrefresh(messages_text_win);
+	wrefresh(input_win);
 }
 
 // Draw help window once

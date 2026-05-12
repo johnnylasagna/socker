@@ -142,35 +142,7 @@ int main(int argc, char *argv[]) {
 				add_message(&messages, &messages_tail, buf, &count);
 			} else {
 				if (strncmp(buf, "/data", 5) == 0) {
-					werase(socker_win);
-
-					box(socker_win, 0, 0);
-
-					char *line = strtok(buf, "\n");
-
-					while (line != NULL) {
-						int pos_x, pos_y;
-
-						if (strncmp(line, "/data id", strlen("/data id")) == 0) {
-							if (sscanf(line + strlen("/data id"), "%d", &id) != 1) {
-								fprintf(stderr, "id malformed\n");
-							}
-
-						} else if (strncmp(line, "/data ball", strlen("/data ball")) == 0) {
-							if (sscanf(line + strlen("/data ball"), "%d %d", &pos_x, &pos_y) == 2) {
-								mvwprintw(socker_win, pos_y, pos_x, "O");
-							}
-
-						} else if (strncmp(line, "player", strlen("player")) == 0) {
-							if (sscanf(line + strlen("player"), "%d %d", &pos_x, &pos_y) == 2) {
-								mvwprintw(socker_win, pos_y, pos_x, "X");
-							}
-						}
-
-						line = strtok(NULL, "\n");
-					}
-
-					wrefresh(socker_win);
+					refresh_socker_window(socker_win, buf, &id);
 				}
 			}
 
@@ -180,7 +152,6 @@ int main(int argc, char *argv[]) {
 		}
 
 		int ch;
-
 		if (show_messages) {
 			ch = wgetch(input_win);
 		} else if (socker) {
@@ -214,23 +185,15 @@ int main(int argc, char *argv[]) {
 								socker = true;
 								show_messages = false;
 
-								werase(messages_win);
-								werase(messages_text_win);
-								werase(input_win);
-								wrefresh(messages_win);
-								wrefresh(messages_text_win);
-								wrefresh(input_win);
+								hide_message_windows(messages_win, messages_text_win, input_win);
 
 							} else if (strncmp(input, "/help", 5) == 0) {
-								werase(messages_win);
-								werase(messages_text_win);
-								werase(input_win);
-								wrefresh(messages_win);
-								wrefresh(messages_text_win);
-								wrefresh(input_win);
-								draw_help_window(help_win);
 								help = true;
 								show_messages = false;
+
+								hide_message_windows(messages_win, messages_text_win, input_win);
+
+								draw_help_window(help_win);
 							}
 
 						} else {
