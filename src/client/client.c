@@ -18,6 +18,7 @@
 #include "../../include/client/globals.h"
 #include "../../include/client/messages.h"
 #include "../../include/client/network.h"
+#include "../../include/client/socker.h"
 #include "../../include/client/terminal.h"
 
 int main(int argc, char *argv[]) {
@@ -127,6 +128,7 @@ int main(int argc, char *argv[]) {
 	mvwprintw(input_win, 1, 1, "> ");
 	wrefresh(input_win);
 
+	// Gamble setup
 	int gamble_amount = 1;
 	srand(time(NULL));
 
@@ -305,25 +307,8 @@ int main(int argc, char *argv[]) {
 					snprintf(leave_buf, sizeof(leave_buf), "/leave %d\n", id);
 					send(server, leave_buf, strlen(leave_buf), 0);
 
-				} else if (ch == 'w') {
-					char data_buf[15];
-					snprintf(data_buf, sizeof(data_buf), "/data %d 0 2\n", id);
-					send(server, data_buf, strlen(data_buf), 0);
-
-				} else if (ch == 'a') {
-					char data_buf[15];
-					snprintf(data_buf, sizeof(data_buf), "/data %d 2 0\n", id);
-					send(server, data_buf, strlen(data_buf), 0);
-
-				} else if (ch == 's') {
-					char data_buf[15];
-					snprintf(data_buf, sizeof(data_buf), "/data %d 0 1\n", id);
-					send(server, data_buf, strlen(data_buf), 0);
-
-				} else if (ch == 'd') {
-					char data_buf[15];
-					snprintf(data_buf, sizeof(data_buf), "/data %d 1 0\n", id);
-					send(server, data_buf, strlen(data_buf), 0);
+				} else {
+					handle_socker_input(ch, server, id);
 				}
 			}
 		} else if (help) {
