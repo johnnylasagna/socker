@@ -118,13 +118,21 @@ void hide_message_windows(WINDOW *messages_win, WINDOW *messages_text_win, WINDO
 void draw_help_window(WINDOW *help_win) {
 	werase(help_win);
 
-	char help_buf[] = " /socker starts a socker game with you friends\n"
-	                  " /whisper <name> <message> allows you to send a message privately to another person in the chat\n"
-	                  " /name <name> allows you to change your name\n"
-	                  " /save allows you to save recent chat history locally\n"
-	                  " /help opens the help section\n";
+	char help_buf[] = " Messaging window:\n"
+	                  " 	/whisper <name> <message>: allows you to send a message privately to another person in the chat\n"
+	                  " 	/name <name>: allows you to change your name\n"
+	                  " 	/save: allows you to save recent chat history locally\n"
+	                  " 	/quit: quit the program\n"
+	                  " Games:\n"
+	                  " 	/socker: allows you to join a socker game with your friends\n"
+	                  " 	/gamble: allows you to gamble alone\n"
+	                  " Help:\n"
+	                  " 	/help opens the help section\n"
+	                  " \n\n\n"
+	                  " PRESS 'q' TO QUIT HELP WINDOW \n"
+	                  " \n";
 
-	mvwprintw(help_win, 0, 0, help_buf);
+	mvwprintw(help_win, 1, 0, help_buf);
 	box(help_win, 0, 0);
 
 	wrefresh(help_win);
