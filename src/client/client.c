@@ -66,6 +66,7 @@ int main(int argc, char *argv[]) {
 	noecho();
 	keypad(stdscr, TRUE);
 	nodelay(stdscr, TRUE);
+	mousemask(0, NULL);
 	curs_set(0);
 
 	int y, x;
@@ -83,8 +84,10 @@ int main(int argc, char *argv[]) {
 	init_pair(1, COLOR_RED, COLOR_BLACK);
 	init_pair(2, COLOR_BLUE, COLOR_BLACK);
 
+	bkgd(COLOR_PAIR(1));
+
 	// Socker setup
-	int id = 0;
+	int id = -1;
 	int height = 24;
 	int width = 80;
 	WINDOW *socker_win = newwin(height, width, (y - height) / 2, (x - width) / 2);
@@ -210,7 +213,7 @@ int main(int argc, char *argv[]) {
 			ch = wgetch(help_win);
 		}
 
-		if (ch == KEY_RESIZE) {
+		if (ch == KEY_RESIZE || ch == KEY_UP || ch == KEY_DOWN || ch == KEY_NPAGE || ch == KEY_PPAGE) {
 			continue;
 		}
 

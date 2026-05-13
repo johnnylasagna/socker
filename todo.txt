@@ -5,6 +5,8 @@ Also print names of players on field if possible, make a toggle for that
 
 add an error window
 
+handle termination during socker quit
+
 fix string termination issue that prints this
 │/data ball 48 12                                                                                               │
 │player 40 12                                                                                                   │
