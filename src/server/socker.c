@@ -2,6 +2,9 @@
 
 // Socker struct
 struct Socker {
+
+	int field_size[2];
+
 	int ball_position[2];
 
 	int player_count;
@@ -26,8 +29,11 @@ void init_socker(struct Socker *socker) {
 		exit(1);
 	}
 
-	socker->ball_position[0] = 10;
-	socker->ball_position[1] = 10;
+	socker->field_size[0] = 80;
+	socker->field_size[1] = 24;
+
+	socker->ball_position[0] = socker->field_size[0] / 2;
+	socker->ball_position[1] = socker->field_size[1] / 2;
 }
 
 // Add player to socker
@@ -45,8 +51,8 @@ int add_player_to_socker(struct Socker *socker, int fd) {
 	int idx = socker->player_count;
 
 	socker->player_fds[idx] = fd;
-	socker->player_positions[idx][0] = 10;
-	socker->player_positions[idx][1] = 10;
+	socker->player_positions[idx][0] = socker->field_size[0] / 2;
+	socker->player_positions[idx][1] = socker->field_size[1] / 2;
 
 	socker->player_count++;
 
@@ -93,6 +99,64 @@ void send_player_data(struct Socker *socker) {
 
 		if (send(dest_fd, position_buf, offset, 0) == -1) {
 			perror("send");
+		}
+	}
+}
+
+void reset_ball_position(struct Socker *socker) {
+	socker->ball_position[0] = socker->field_size[0] / 2;
+	socker->ball_position[1] = socker->field_size[1] / 2;
+}
+
+void update_positions(struct Socker *socker, char *buf) {
+	int id;
+	int dx;
+	int dy;
+
+	if (sscanf(buf + 6, "%d %d %d", &id, &dx, &dy) != 3) {
+		fprintf(stderr, "malformed data received\n");
+		exit(1);
+	}
+	if (dx == 1) {
+		if (socker->player_positions[id][0] != socker->field_size[0] - 1)
+			socker->player_positions[id][0] += 1;
+	} else if (dx == 2) {
+		if (socker->player_positions[id][0] != 0)
+			socker->player_positions[id][0] -= 1;
+	}
+
+	if (dy == 1) {
+		if (socker->player_positions[id][1] != socker->field_size[1] - 1)
+			socker->player_positions[id][1] += 1;
+	} else if (dy == 2) {
+		if (socker->player_positions[id][1] != 0)
+			socker->player_positions[id][1] -= 1;
+	}
+
+	if (socker->player_positions[id][0] == socker->ball_position[0] &&
+	    socker->player_positions[id][1] == socker->ball_position[1]) {
+		if (dx == 1) {
+			socker->ball_position[0] += 2;
+			if (socker->ball_position[0] > socker->field_size[0] - 1)
+				reset_ball_position(socker);
+
+		} else if (dx == 2) {
+			socker->ball_position[0] -= 2;
+			if (socker->ball_position[0] < 0)
+				reset_ball_position(socker);
+			if (socker->ball_position[0] > socker->field_size[0] - 1)
+				reset_ball_position(socker);
+		}
+
+		if (dy == 1) {
+			socker->ball_position[1] += 2;
+			if (socker->ball_position[1] > socker->field_size[1] - 1)
+				reset_ball_position(socker);
+
+		} else if (dy == 2) {
+			socker->ball_position[1] -= 2;
+			if (socker->ball_position[1] < 0)
+				reset_ball_position(socker);
 		}
 	}
 }

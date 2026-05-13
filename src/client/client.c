@@ -70,7 +70,9 @@ int main(int argc, char *argv[]) {
 
 	// Socker setup
 	int id = 0;
-	WINDOW *socker_win = newwin(y, x, 0, 0);
+	int height = 24;
+	int width = 80;
+	WINDOW *socker_win = newwin(height, width, (y - height) / 2, (x - width) / 2);
 	keypad(socker_win, TRUE);
 	nodelay(socker_win, TRUE);
 	werase(socker_win);

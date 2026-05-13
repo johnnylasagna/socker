@@ -7,6 +7,7 @@
 
 // Socker struct
 struct Socker {
+	int field_size[2];
 	int ball_position[2];
 	int player_count;
 	int player_size;
@@ -24,5 +25,9 @@ int add_player_to_socker(struct Socker *socker, int fd);
 int delete_player(struct Socker *socker, int index);
 
 void send_player_data(struct Socker *socker);
+
+void reset_ball_position(struct Socker *socker);
+
+void update_positions(struct Socker *socker, char *buf);
 
 #endif // SERVER_SOCKER_H

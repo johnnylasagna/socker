@@ -8,3 +8,5 @@ add an error window
 
 
 handle accidentally quitting in between socker
+
+handle out of bounds in socker

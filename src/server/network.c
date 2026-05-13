@@ -217,43 +217,7 @@ void handle_client_data(int listener, int *fd_count, struct pollfd *pfds, int *p
 				send_player_data(socker);
 
 			} else if (strncmp(buf, "/data", 5) == 0) {
-				int id;
-				int dx;
-				int dy;
-
-				if (sscanf(buf + 6, "%d %d %d", &id, &dx, &dy) != 3) {
-					fprintf(stderr, "malformed data received\n");
-					exit(1);
-				}
-				if (dx == 1) {
-					socker->player_positions[id][0] += 1;
-				} else if (dx == 2) {
-					socker->player_positions[id][0] -= 1;
-				}
-
-				if (dy == 1) {
-					socker->player_positions[id][1] += 1;
-				} else if (dy == 2) {
-					socker->player_positions[id][1] -= 1;
-				}
-
-				if (socker->player_positions[id][0] == socker->ball_position[0] &&
-				    socker->player_positions[id][1] == socker->ball_position[1]) {
-					if (dx == 1) {
-						socker->ball_position[0] += 1;
-
-					} else if (dx == 2) {
-						socker->ball_position[0] -= 1;
-					}
-
-					if (dy == 1) {
-						socker->ball_position[1] += 1;
-
-					} else if (dy == 2) {
-						socker->ball_position[1] -= 1;
-					}
-				}
-
+				update_positions(socker, buf);
 				send_player_data(socker);
 
 			} else if (strncmp(buf, "/leave", 6) == 0) {
