@@ -15,6 +15,7 @@
 #include <unistd.h>
 
 #include "../../include/client/buffers.h"
+#include "../../include/client/globals.h"
 #include "../../include/client/messages.h"
 #include "../../include/client/network.h"
 #include "../../include/client/terminal.h"
@@ -58,6 +59,7 @@ int main(int argc, char *argv[]) {
 
 	// ncurses setup
 	signal(SIGINT, handle_sigint);
+	signal(SIGWINCH, handle_sigwinch);
 	initscr();
 	cbreak();
 	noecho();
@@ -67,6 +69,18 @@ int main(int argc, char *argv[]) {
 
 	int y, x;
 	getmaxyx(stdscr, y, x);
+
+	// Color setup
+	start_color();
+
+	if (!has_colors()) {
+		endwin();
+		printf("No color support\n");
+		return 1;
+	}
+
+	init_pair(1, COLOR_RED, COLOR_BLACK);
+	init_pair(2, COLOR_BLUE, COLOR_BLACK);
 
 	// Socker setup
 	int id = 0;
@@ -116,9 +130,38 @@ int main(int argc, char *argv[]) {
 	// Main loop
 	for (;;) {
 		if (poll(&pfd, 1, 50) == -1) {
+			if (errno == EINTR) continue;
 			endwin();
 			perror("poll");
 			exit(1);
+		}
+
+		if (terminal_resized) {
+			terminal_resized = 0;
+			endwin();
+			refresh();
+			clear();
+
+			getmaxyx(stdscr, y, x);
+			max_lines = y - 5;
+
+			wresize(messages_win, y - 3, x);
+			wresize(input_win, 3, x);
+			wresize(messages_text_win, y - 5, x - 2);
+			mvwin(input_win, y - 3, 0);
+			mvwin(socker_win, (y - height) / 2, (x - width) / 2);
+			wresize(help_win, y, x);
+
+			if (show_messages) {
+				refresh_input_window(input_win, input, &input_len, x - 2);
+				refresh_messages_window(messages_win, messages_text_win, &messages, &count, max_lines, x - 2);
+			} else if (socker) {
+				werase(socker_win);
+				box(socker_win, 0, 0);
+				wrefresh(socker_win);
+			} else if (help) {
+				draw_help_window(help_win);
+			}
 		}
 
 		if (pfd.revents & POLLIN) {
@@ -160,6 +203,10 @@ int main(int argc, char *argv[]) {
 			ch = wgetch(socker_win);
 		} else if (help) {
 			ch = wgetch(help_win);
+		}
+
+		if (ch == KEY_RESIZE) {
+			continue;
 		}
 
 		if (show_messages) {
@@ -275,6 +322,34 @@ int main(int argc, char *argv[]) {
 				}
 			}
 		}
+
+		// if (ch == KEY_RESIZE) {
+		// 	endwin();
+
+		// 	getmaxyx(stdscr, y, x);
+		// 	max_lines = y - 5;
+
+		// 	clear();
+		// 	refresh();
+
+		// 	wresize(messages_win, y - 3, x);
+		// 	wresize(input_win, 3, x);
+		// 	wresize(messages_text_win, y - 5, x - 2);
+		// 	mvwin(input_win, y - 3, 0);
+		// 	mvwin(socker_win, (y - height) / 2, (x - width) / 2);
+		// 	wresize(help_win, y, x);
+
+		// 	if (show_messages) {
+		// 		refresh_input_window(input_win, input, &input_len, x - 2);
+		// 		refresh_messages_window(messages_win, messages_text_win, &messages, &count, max_lines, x - 2);
+		// 	} else if (socker) {
+		// 		werase(socker_win);
+		// 		box(socker_win, 0, 0);
+		// 		wrefresh(socker_win);
+		// 	} else if (help) {
+		// 		draw_help_window(help_win);
+		// 	}
+		// }
 	}
 	endwin();
 	close(server);

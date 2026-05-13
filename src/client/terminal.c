@@ -1,10 +1,17 @@
 #include "../../include/client/terminal.h"
 
-// To handle user pressing ctrl+c or ctrl+v to end program
+// To handle user pressing ctrl+c to end program
 void handle_sigint(int sig) {
 	endwin();
 	printf("\nDisconnected from chatroom.\n");
 	exit(0);
+}
+
+// To handle window resizing
+volatile sig_atomic_t terminal_resized = 0;
+
+void handle_sigwinch(int sig) {
+	terminal_resized = 1;
 }
 
 // Refresh messages window
@@ -25,8 +32,18 @@ void refresh_messages_window(WINDOW *messages_win, WINDOW *messages_text_win, st
 
 	struct message *p = *messages;
 	while (p != NULL) {
+		if (strncmp(p->content, "You:", 4) == 0) {
+			attron(COLOR_PAIR(1));
+		} else {
+			attron(COLOR_PAIR(2));
+		}
 		mvwprintw(messages_text_win, row++, 0, "%s", p->content);
 		row += strlen(p->content) / window_width;
+		if (strncmp(p->content, "You:", 4) == 0) {
+			attroff(COLOR_PAIR(1));
+		} else {
+			attroff(COLOR_PAIR(1));
+		}
 		p = p->next;
 	}
 

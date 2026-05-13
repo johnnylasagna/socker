@@ -9,4 +9,7 @@ add an error window
 
 handle accidentally quitting in between socker
 
-handle out of bounds in socker
+fix string termination issue that prints this
+│/data ball 48 12                                                                                               │
+│player 40 12                                                                                                   │
+│player 40 12 
