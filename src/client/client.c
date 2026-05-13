@@ -127,6 +127,9 @@ int main(int argc, char *argv[]) {
 	mvwprintw(input_win, 1, 1, "> ");
 	wrefresh(input_win);
 
+	int gamble_amount = 1;
+	srand(time(NULL));
+
 	// Main loop
 	for (;;) {
 		if (poll(&pfd, 1, 50) == -1) {
@@ -243,6 +246,17 @@ int main(int argc, char *argv[]) {
 								hide_message_windows(messages_win, messages_text_win, input_win);
 
 								draw_help_window(help_win);
+
+							} else if (strncmp(input, "/gamble", 7) == 0) {
+								if (rand() % 2 == 0) {
+									gamble_amount *= 2;
+								} else {
+									gamble_amount = 1;
+								}
+
+								char gamble_msg[30];
+								snprintf(gamble_msg, sizeof(gamble_msg), "You now have %d coins\n", gamble_amount);
+								add_message(&messages, &messages_tail, gamble_msg, &count);
 							}
 
 						} else {
