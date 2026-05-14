@@ -79,7 +79,8 @@ void send_to_all_clients(int listener, int *fd_count, struct pollfd *pfds, int *
 		int dest_fd = pfds[j].fd;
 
 		if (dest_fd != listener && dest_fd != *sender_fd) {
-			if (send(dest_fd, buf, size, 0) == -1) {
+			int buf_len = strlen(buf);
+			if (sendall(dest_fd, buf, &buf_len) == -1) {
 				perror("send");
 			}
 		}
@@ -194,7 +195,8 @@ void handle_client_data(int listener, int *fd_count, struct pollfd *pfds, int *p
 
 				int whispered_fd = get_fd_from_whispered_name(name_buf);
 				if (whispered_fd != -1) {
-					if (send(whispered_fd, whisper_msg_with_name, strlen(whisper_msg_with_name), 0) == -1) {
+					int whisper_len = strlen(whisper_msg_with_name);
+					if (sendall(whispered_fd, whisper_msg_with_name, &whisper_len) == -1) {
 						perror("send");
 					}
 				}
@@ -208,7 +210,8 @@ void handle_client_data(int listener, int *fd_count, struct pollfd *pfds, int *p
 				int id = add_player_to_socker(socker, sender_fd);
 				char id_buf[22];
 				snprintf(id_buf, sizeof(id_buf), "/data id %d\n", id);
-				send(sender_fd, id_buf, sizeof(id_buf), 0);
+				int id_len = strlen(id_buf);
+				sendall(sender_fd, id_buf, &id_len);
 
 				char socker_buf[40];
 				snprintf(socker_buf, sizeof(socker_buf), "%s joined socker\n", names[sender_fd]);
@@ -232,7 +235,9 @@ void handle_client_data(int listener, int *fd_count, struct pollfd *pfds, int *p
 
 				char new_id_buf[20];
 				snprintf(new_id_buf, sizeof(new_id_buf), "/data id %d\n", id);
-				send(socker->player_fds[old_id], new_id_buf, strlen(new_id_buf), 0);
+
+				int new_id_len = strlen(new_id_buf);
+				sendall(socker->player_fds[old_id], new_id_buf, &new_id_len);
 				send_player_data(socker);
 			}
 		} else {
@@ -251,5 +256,27 @@ void process_connections(int listener, int *fd_count, int *fd_size, struct pollf
 				handle_client_data(listener, fd_count, *pfds, &i, socker);
 			}
 		}
+	}
+}
+
+int sendall(int s, char *buf, int *len) {
+	int total = 0;
+	int bytesleft = *len;
+	int n = 0;
+
+	while (total < *len) {
+		n = send(s, buf + total, bytesleft, 0);
+		if (n == -1) {
+			break;
+		}
+		total += n;
+		bytesleft -= n;
+	}
+
+	*len = total;
+	if (n == -1) {
+		return -1;
+	} else {
+		return 0;
 	}
 }

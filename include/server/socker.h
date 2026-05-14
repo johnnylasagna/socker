@@ -5,6 +5,8 @@
 #include <stdlib.h>
 #include <sys/socket.h>
 
+#include "network.h"
+
 // Socker struct
 struct Socker {
 	int field_size[2];

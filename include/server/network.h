@@ -17,8 +17,9 @@
 #include <unistd.h>
 
 #include "globals.h"
-#include "socker.h"
 #include "whisper.h"
+
+struct Socker;
 
 // Convert IP address into printable format
 const char *inet_ntop2(void *addr, char *buf, size_t size);
@@ -43,5 +44,7 @@ void handle_client_data(int listener, int *fd_count, struct pollfd *pfds, int *p
 
 // Process connections
 void process_connections(int listener, int *fd_count, int *fd_size, struct pollfd **pfds, struct Socker *socker);
+
+int sendall(int s, char *buf, int *len);
 
 #endif // SERVER_NETWORK_H

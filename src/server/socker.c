@@ -83,7 +83,9 @@ void send_player_data(struct Socker *socker) {
 	for (int i = 0; i < socker->player_count; i++) {
 		int dest_fd = socker->player_fds[i];
 
-		if (send(dest_fd, position_buf, offset, 0) == -1) {
+		int position_len = offset;
+
+		if (sendall(dest_fd, position_buf, &position_len) == -1) {
 			perror("send");
 		}
 	}

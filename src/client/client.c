@@ -195,8 +195,8 @@ int main(int argc, char *argv[]) {
 				add_message(&messages, &messages_tail, buf, &count);
 			} else {
 				if (strncmp(buf, "/data", 5) == 0) {
-				refresh_socker_window(socker_win, buf, &id);
-			}
+					refresh_socker_window(socker_win, buf, &id);
+				}
 			}
 
 			if (show_messages) {
@@ -225,7 +225,8 @@ int main(int argc, char *argv[]) {
 						if (input[0] == '/') {
 							char msg[280];
 							snprintf(msg, sizeof(msg), "%s\n", input);
-							send(server, msg, strlen(msg), 0);
+							int msg_len = strlen(msg);
+							sendall(server, msg, &msg_len);
 
 							if (strncmp(input, "/name", 5) == 0) {
 								sscanf(input + strlen("/name "), "%s", name);
@@ -267,7 +268,8 @@ int main(int argc, char *argv[]) {
 						} else {
 							char msg[280];
 							snprintf(msg, sizeof(msg), "%s:%s\n", name, input);
-							send(server, msg, strlen(msg), 0);
+							int msg_len = strlen(msg);
+							sendall(server, msg, &msg_len);
 
 							char messages_msg[280];
 							snprintf(messages_msg, sizeof(messages_msg), "You:%s\n", input);
@@ -308,7 +310,8 @@ int main(int argc, char *argv[]) {
 
 					char leave_buf[15];
 					snprintf(leave_buf, sizeof(leave_buf), "/leave %d\n", id);
-					send(server, leave_buf, strlen(leave_buf), 0);
+					int leave_len = strlen(leave_buf);
+					sendall(server, leave_buf, &leave_len);
 
 				} else {
 					handle_socker_input(ch, server, id);

@@ -22,7 +22,10 @@ int send_join_message(int server, char *name) {
 	char com_buf[27];
 	strcpy(com_buf, "/name ");
 	strcpy(com_buf + 6, name);
-	if (send(server, com_buf, strlen(com_buf), 0) == -1) {
+
+	int com_len = strlen(com_buf);
+
+	if (sendall(server, com_buf, &com_len) == -1) {
 		return -2;
 	}
 

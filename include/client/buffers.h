@@ -10,6 +10,7 @@
 #include <time.h>
 
 #include "messages.h"
+#include "network.h"
 
 // Write whispered message to a buffer
 void generate_whispered_message(char *whispered_msg, size_t size, char *input);
