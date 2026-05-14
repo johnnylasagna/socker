@@ -1,7 +1,3 @@
-## Feature: Send_all 
-Change all send calls to send_all calls to ensure that
-all of the data is being sent from the buffer
-
 ## Feature: Player names
 Print names of players on field with a key toggle
 <br> Can also be extended to chat window showing who are in the chat
@@ -10,7 +6,7 @@ Print names of players on field with a key toggle
 Add an error window to handle user error
 
 ## Bug: Termination
-Handle termination during unexpecte exit
+Handle termination during unexpected exit
 
-## Bug: String termination
-Socker data is printed to screen after exiting Socker mode
+# Optimisation: Data
+Server always send all player data at once, instead send only required changes

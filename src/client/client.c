@@ -112,7 +112,7 @@ int main(int argc, char *argv[]) {
 	nodelay(input_win, TRUE);
 
 	// Help setup
-	WINDOW *help_win = newwin(y, x, 0, 0);
+	WINDOW *help_win = newwin(height, width, (y - height) / 2, (x - width) / 2);
 	keypad(help_win, TRUE);
 	nodelay(help_win, TRUE);
 
@@ -158,7 +158,7 @@ int main(int argc, char *argv[]) {
 			wresize(messages_text_win, y - 5, x - 2);
 			mvwin(input_win, y - 3, 0);
 			mvwin(socker_win, (y - height) / 2, (x - width) / 2);
-			wresize(help_win, y, x);
+			mvwin(help_win, (y - height) / 2, (x - width) / 2);
 
 			if (show_messages) {
 				refresh_input_window(input_win, input, &input_len, x - 2);

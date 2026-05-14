@@ -119,7 +119,8 @@ void draw_help_window(WINDOW *help_win) {
 	werase(help_win);
 
 	char help_buf[] = " Messaging window:\n"
-	                  " 	/whisper <name> <message>: allows you to send a message privately to another person in the chat\n"
+	                  " 	/whisper <name> <message>: allows you to send a message privately to\n"
+	                  " 		another person in the chat\n"
 	                  " 	/name <name>: allows you to change your name\n"
 	                  " 	/save: allows you to save recent chat history locally\n"
 	                  " 	/quit: quit the program\n"
