@@ -226,7 +226,10 @@ int main(int argc, char *argv[]) {
 							char msg[280];
 							snprintf(msg, sizeof(msg), "%s\n", input);
 							int msg_len = strlen(msg);
-							sendall(server, msg, &msg_len);
+							if (sendall(server, msg, &msg_len) == -1) {
+								fprintf(stderr, "failed sending to server\n");
+								perror("sendall");
+							}
 
 							if (strncmp(input, "/name", 5) == 0) {
 								sscanf(input + strlen("/name "), "%s", name);
@@ -269,7 +272,10 @@ int main(int argc, char *argv[]) {
 							char msg[280];
 							snprintf(msg, sizeof(msg), "%s:%s\n", name, input);
 							int msg_len = strlen(msg);
-							sendall(server, msg, &msg_len);
+							if (sendall(server, msg, &msg_len) == -1) {
+								fprintf(stderr, "failed sending to server\n");
+								perror("sendall");
+							}
 
 							char messages_msg[280];
 							snprintf(messages_msg, sizeof(messages_msg), "You:%s\n", input);
@@ -311,7 +317,10 @@ int main(int argc, char *argv[]) {
 					char leave_buf[15];
 					snprintf(leave_buf, sizeof(leave_buf), "/leave %d\n", id);
 					int leave_len = strlen(leave_buf);
-					sendall(server, leave_buf, &leave_len);
+					if (sendall(server, leave_buf, &leave_len) == -1) {
+						fprintf(stderr, "failed sending to server\n");
+						perror("sendall");
+					}
 
 				} else {
 					handle_socker_input(ch, server, id);

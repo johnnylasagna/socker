@@ -1,4 +1,5 @@
 #include "../../include/server/network.h"
+#include "../../include/server/socker.h"
 
 // Convert IP address into printable format
 const char *inet_ntop2(void *addr, char *buf, size_t size) {
@@ -21,6 +22,28 @@ const char *inet_ntop2(void *addr, char *buf, size_t size) {
 	}
 
 	return inet_ntop(sas->ss_family, src, buf, size);
+}
+
+int sendall(int s, char *buf, int *len) {
+	int total = 0;
+	int bytesleft = *len;
+	int n = 0;
+
+	while (total < *len) {
+		n = send(s, buf + total, bytesleft, 0);
+		if (n == -1) {
+			break;
+		}
+		total += n;
+		bytesleft -= n;
+	}
+
+	*len = total;
+	if (n == -1) {
+		return -1;
+	} else {
+		return 0;
+	}
 }
 
 // Get listener socket for server
@@ -211,7 +234,9 @@ void handle_client_data(int listener, int *fd_count, struct pollfd *pfds, int *p
 				char id_buf[22];
 				snprintf(id_buf, sizeof(id_buf), "/data id %d\n", id);
 				int id_len = strlen(id_buf);
-				sendall(sender_fd, id_buf, &id_len);
+				if (sendall(sender_fd, id_buf, &id_len) == -1) {
+					perror("send");
+				}
 
 				char socker_buf[40];
 				snprintf(socker_buf, sizeof(socker_buf), "%s joined socker\n", names[sender_fd]);
@@ -237,7 +262,9 @@ void handle_client_data(int listener, int *fd_count, struct pollfd *pfds, int *p
 				snprintf(new_id_buf, sizeof(new_id_buf), "/data id %d\n", id);
 
 				int new_id_len = strlen(new_id_buf);
-				sendall(socker->player_fds[old_id], new_id_buf, &new_id_len);
+				if (sendall(socker->player_fds[old_id], new_id_buf, &new_id_len) == -1) {
+					perror("send");
+				}
 				send_player_data(socker);
 			}
 		} else {
@@ -256,27 +283,5 @@ void process_connections(int listener, int *fd_count, int *fd_size, struct pollf
 				handle_client_data(listener, fd_count, *pfds, &i, socker);
 			}
 		}
-	}
-}
-
-int sendall(int s, char *buf, int *len) {
-	int total = 0;
-	int bytesleft = *len;
-	int n = 0;
-
-	while (total < *len) {
-		n = send(s, buf + total, bytesleft, 0);
-		if (n == -1) {
-			break;
-		}
-		total += n;
-		bytesleft -= n;
-	}
-
-	*len = total;
-	if (n == -1) {
-		return -1;
-	} else {
-		return 0;
 	}
 }
