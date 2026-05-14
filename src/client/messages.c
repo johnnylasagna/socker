@@ -1,11 +1,5 @@
 #include "../../include/client/messages.h"
 
-// Linked list that gets messages
-struct message {
-	char content[512];
-	struct message *next;
-};
-
 // Add message to message linked list
 void add_message(struct message **messages, struct message **messages_tail, char *msg, int *count) {
 	struct message *new_msg = malloc(sizeof(struct message));

@@ -1,19 +1,5 @@
 #include "../../include/server/socker.h"
 
-// Socker struct
-struct Socker {
-
-	int field_size[2];
-
-	int ball_position[2];
-
-	int player_count;
-	int player_size;
-
-	int *player_fds;
-	int (*player_positions)[2];
-};
-
 // Initialise socker
 void init_socker(struct Socker *socker) {
 
@@ -89,7 +75,7 @@ void send_player_data(struct Socker *socker) {
 		offset += snprintf(
 		    position_buf + offset,
 		    sizeof(position_buf) - offset,
-		    "player %d %d\n",
+		    "/data player %d %d\n",
 		    socker->player_positions[j][0],
 		    socker->player_positions[j][1]);
 	}

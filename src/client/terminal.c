@@ -92,8 +92,8 @@ void refresh_socker_window(WINDOW *socker_win, char *buf, int *id) {
 				mvwprintw(socker_win, pos_y, pos_x, "O");
 			}
 
-		} else if (strncmp(line, "player", strlen("player")) == 0) {
-			if (sscanf(line + strlen("player"), "%d %d", &pos_x, &pos_y) == 2) {
+		} else if (strncmp(line, "/data player", strlen("/data player")) == 0) {
+			if (sscanf(line + strlen("/data player"), "%d %d", &pos_x, &pos_y) == 2) {
 				mvwprintw(socker_win, pos_y, pos_x, "X");
 			}
 		}
@@ -132,7 +132,7 @@ void draw_help_window(WINDOW *help_win) {
 	                  " PRESS 'q' TO QUIT HELP WINDOW \n"
 	                  " \n";
 
-	mvwprintw(help_win, 1, 0, help_buf);
+	mvwprintw(help_win, 1, 0, "%s", help_buf);
 	box(help_win, 0, 0);
 
 	wrefresh(help_win);

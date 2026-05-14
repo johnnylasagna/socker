@@ -32,7 +32,10 @@ int send_join_message(int server, char *name) {
 // Set name locally and on server
 void set_name(int server, char *name, size_t size) {
 	printf("Enter name to connect to chatroom with: ");
-	fgets(name, size, stdin);
+	if (fgets(name, size, stdin) == NULL) {
+		fprintf(stderr, "error reading input stream\n");
+		exit(1);
+	}
 
 	if (send_join_message(server, name) == -2) {
 		fprintf(stderr, "error sending joining message\n");

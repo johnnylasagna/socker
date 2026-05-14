@@ -195,8 +195,8 @@ int main(int argc, char *argv[]) {
 				add_message(&messages, &messages_tail, buf, &count);
 			} else {
 				if (strncmp(buf, "/data", 5) == 0) {
-					refresh_socker_window(socker_win, buf, &id);
-				}
+				refresh_socker_window(socker_win, buf, &id);
+			}
 			}
 
 			if (show_messages) {
@@ -204,7 +204,7 @@ int main(int argc, char *argv[]) {
 			}
 		}
 
-		int ch;
+		int ch = ERR;
 		if (show_messages) {
 			ch = wgetch(input_win);
 		} else if (socker) {
