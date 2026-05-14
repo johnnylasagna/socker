@@ -9,7 +9,7 @@ void generate_whispered_message(char *whispered_msg, size_t size, char *input) {
 		name_len = sizeof(name_buf) - 1;
 	}
 
-	memcpy(name_buf, input + 9, name_len);
+	strncpy(name_buf, input + 9, name_len);
 	name_buf[name_len] = '\0';
 
 	char whispered_to[] = "whispered to ";
@@ -51,9 +51,7 @@ void set_name(int server, char *name, size_t size) {
 
 // Save recent chat contents
 void save_chat_contents(struct message *messages) {
-
 	time_t now = time(NULL);
-
 	struct tm *t = localtime(&now);
 
 	char filename[20];

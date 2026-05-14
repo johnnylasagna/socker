@@ -242,7 +242,7 @@ void handle_client_data(int listener, int *fd_count, struct pollfd *pfds, int *p
 				snprintf(socker_buf, sizeof(socker_buf), "%s joined socker\n", names[sender_fd]);
 				send_to_all_clients(listener, fd_count, pfds, &sender_fd, socker_buf, strlen(socker_buf));
 
-				send_player_data(socker);
+				// send_player_data(socker);
 
 			} else if (strncmp(buf, "/data", 5) == 0) {
 				update_positions(socker, buf);
