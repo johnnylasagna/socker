@@ -42,6 +42,8 @@ int add_player_to_socker(struct Socker *socker, int fd) {
 
 	socker->player_count++;
 
+	send_count_data(socker);
+
 	return socker->player_count - 1;
 }
 
@@ -55,10 +57,12 @@ int delete_player(struct Socker *socker, int index) {
 
 	socker->player_count--;
 
+	send_count_data(socker);
+
 	return last;
 }
 
-void send_player_data(struct Socker *socker) {
+void send_all_player_data(struct Socker *socker, int id) {
 	char position_buf[1024];
 
 	int offset = 0;
@@ -70,22 +74,66 @@ void send_player_data(struct Socker *socker) {
 	    socker->ball_position[0],
 	    socker->ball_position[1]);
 
-	for (int j = 0; j < socker->player_count;
-	     j++) {
+	offset += snprintf(
+	    position_buf + offset,
+	    sizeof(position_buf) - offset,
+	    "/data count %d \n",
+	    socker->player_count);
+
+	for (int j = 0; j < socker->player_count; j++) {
 		offset += snprintf(
 		    position_buf + offset,
 		    sizeof(position_buf) - offset,
-		    "/data player %d %d\n",
+		    "/data player %d %d %d\n",
+		    j,
 		    socker->player_positions[j][0],
 		    socker->player_positions[j][1]);
 	}
 
+	int dest_fd = socker->player_fds[id];
+
+	int position_len = offset;
+
+	if (sendall(dest_fd, position_buf, &position_len) == -1) {
+		perror("send");
+	}
+}
+
+void send_player_data(struct Socker *socker, int id) {
+	char position_buf[40];
+
+	snprintf(position_buf,
+	         sizeof(position_buf),
+	         "/data player %d %d %d\n",
+	         id,
+	         socker->player_positions[id][0],
+	         socker->player_positions[id][1]);
+
+	int position_len = strlen(position_buf);
+
 	for (int i = 0; i < socker->player_count; i++) {
 		int dest_fd = socker->player_fds[i];
 
-		int position_len = offset;
-
 		if (sendall(dest_fd, position_buf, &position_len) == -1) {
+			perror("send");
+		}
+	}
+}
+
+void send_count_data(struct Socker *socker) {
+	char count_buf[40];
+
+	snprintf(count_buf,
+	         sizeof(count_buf),
+	         "/data count %d\n",
+	         socker->player_count + 1);
+
+	int position_len = strlen(count_buf);
+
+	for (int i = 0; i < socker->player_count; i++) {
+		int dest_fd = socker->player_fds[i];
+
+		if (sendall(dest_fd, count_buf, &position_len) == -1) {
 			perror("send");
 		}
 	}
@@ -147,4 +195,6 @@ void update_positions(struct Socker *socker, char *buf) {
 				reset_ball_position(socker);
 		}
 	}
+
+	send_player_data(socker, id);
 }

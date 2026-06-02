@@ -26,7 +26,11 @@ int add_player_to_socker(struct Socker *socker, int fd);
 // Delete player from socker
 int delete_player(struct Socker *socker, int index);
 
-void send_player_data(struct Socker *socker);
+void send_all_player_data(struct Socker *socker, int id);
+
+void send_player_data(struct Socker *socker, int id);
+
+void send_count_data(struct Socker *socker);
 
 void reset_ball_position(struct Socker *socker);
 

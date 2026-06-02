@@ -242,11 +242,10 @@ void handle_client_data(int listener, int *fd_count, struct pollfd *pfds, int *p
 				snprintf(socker_buf, sizeof(socker_buf), "%s joined socker\n", names[sender_fd]);
 				send_to_all_clients(listener, fd_count, pfds, &sender_fd, socker_buf, strlen(socker_buf));
 
-				// send_player_data(socker);
+				send_all_player_data(socker, id);
 
 			} else if (strncmp(buf, "/data", 5) == 0) {
 				update_positions(socker, buf);
-				send_player_data(socker);
 
 			} else if (strncmp(buf, "/leave", 6) == 0) {
 				int id;
@@ -265,7 +264,8 @@ void handle_client_data(int listener, int *fd_count, struct pollfd *pfds, int *p
 				if (sendall(socker->player_fds[old_id], new_id_buf, &new_id_len) == -1) {
 					perror("send");
 				}
-				send_player_data(socker);
+
+				send_all_player_data(socker, id);
 			}
 		} else {
 			send_to_all_clients(listener, fd_count, pfds, &sender_fd, buf, strlen(buf));

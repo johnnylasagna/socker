@@ -135,6 +135,9 @@ int main(int argc, char *argv[]) {
 	int gamble_amount = 1;
 	srand(time(NULL));
 
+	struct Socker sockerData;
+	init_socker(&sockerData, 1);
+
 	// Main loop
 	for (;;) {
 		if (poll(&pfd, 1, 50) == -1) {
@@ -195,7 +198,8 @@ int main(int argc, char *argv[]) {
 				add_message(&messages, &messages_tail, buf, &count);
 			} else {
 				if (strncmp(buf, "/data", 5) == 0) {
-					refresh_socker_window(socker_win, buf, &id);
+					handle_socker_data(buf, &id, &sockerData);
+					refresh_socker_window(socker_win, &sockerData);
 				}
 			}
 
@@ -263,7 +267,7 @@ int main(int argc, char *argv[]) {
 									gamble_amount = 1;
 								}
 
-								char gamble_msg[30];
+								char gamble_msg[32];
 								snprintf(gamble_msg, sizeof(gamble_msg), "You now have %d coins\n", gamble_amount);
 								add_message(&messages, &messages_tail, gamble_msg, &count);
 							}

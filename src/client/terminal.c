@@ -4,6 +4,7 @@
 void handle_sigint(int sig) {
 	endwin();
 	printf("\nDisconnected from chatroom.\n");
+	(void)sig;
 	exit(0);
 }
 
@@ -12,6 +13,7 @@ volatile sig_atomic_t terminal_resized = 0;
 
 void handle_sigwinch(int sig) {
 	terminal_resized = 1;
+	(void)sig;
 }
 
 // Refresh messages window
@@ -72,33 +74,15 @@ void refresh_input_window(WINDOW *input_win, char *input, int *input_len, int wi
 }
 
 // Refresh socker window
-void refresh_socker_window(WINDOW *socker_win, char *buf, int *id) {
+void refresh_socker_window(WINDOW *socker_win, struct Socker *socker) {
 	werase(socker_win);
 
 	box(socker_win, 0, 0);
 
-	char *line = strtok(buf, "\n");
+	mvwprintw(socker_win, socker->ball_position[1], socker->ball_position[0], "O");
 
-	while (line != NULL) {
-		int pos_x, pos_y;
-
-		if (strncmp(line, "/data id", strlen("/data id")) == 0) {
-			if (sscanf(line + strlen("/data id"), "%d", id) != 1) {
-				fprintf(stderr, "id malformed\n");
-			}
-
-		} else if (strncmp(line, "/data ball", strlen("/data ball")) == 0) {
-			if (sscanf(line + strlen("/data ball"), "%d %d", &pos_x, &pos_y) == 2) {
-				mvwprintw(socker_win, pos_y, pos_x, "O");
-			}
-
-		} else if (strncmp(line, "/data player", strlen("/data player")) == 0) {
-			if (sscanf(line + strlen("/data player"), "%d %d", &pos_x, &pos_y) == 2) {
-				mvwprintw(socker_win, pos_y, pos_x, "X");
-			}
-		}
-
-		line = strtok(NULL, "\n");
+	for (int i = 0; i < socker->player_count; i++) {
+		mvwprintw(socker_win, socker->player_positions[i][1], socker->player_positions[i][0], "X");
 	}
 
 	wrefresh(socker_win);
