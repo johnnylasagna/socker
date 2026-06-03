@@ -233,7 +233,7 @@ void handle_client_data(int listener, int socker_listener, int *fd_count, struct
 				char quit_buf[40];
 				snprintf(quit_buf, sizeof(quit_buf), "%s left\n", names[sender_fd]);
 
-				memset(names[*pfd_i], 0, sizeof(names[sender_fd]));
+				memset(names[sender_fd], 0, sizeof(names[sender_fd]));
 				close(sender_fd);
 				del_from_pfds(pfds, *pfd_i, fd_count);
 
@@ -289,8 +289,6 @@ void handle_client_data(int listener, int socker_listener, int *fd_count, struct
 				send_to_all_clients(listener, socker_listener, fd_count, pfds, &sender_fd, socker_buf, strlen(socker_buf));
 
 				struct sockaddr_storage udp_addr;
-				socklen_t addr_len = sizeof(udp_addr);
-				getpeername(sender_fd, (struct sockaddr *)&udp_addr, &addr_len);
 
 				int id = add_player_to_socker(socker, &udp_addr, sender_fd);
 				char id_buf[22];
@@ -306,20 +304,23 @@ void handle_client_data(int listener, int socker_listener, int *fd_count, struct
 
 				if (sscanf(buf + strlen("/leave"), "%d", &id) != 1) {
 					fprintf(stderr, "malformed leave received\n");
-					exit(1);
+					return;
 				}
 
 				int old_id = delete_player(socker, id);
 
 				char new_id_buf[20];
 				snprintf(new_id_buf, sizeof(new_id_buf), "/data id %d\n", id);
-
 				int new_id_len = strlen(new_id_buf);
+
 				if (sendall(socker->player_tcp_fds[old_id], new_id_buf, &new_id_len) == -1) {
 					perror("send");
 				}
 
-				send_all_player_data(socker, id);
+				// Fully send all data again to every client
+				for (int i = 0; i < socker->player_count; i++) {
+					send_all_player_data(socker, i);
+				}
 			}
 		} else {
 			send_to_all_clients(listener, socker_listener, fd_count, pfds, &sender_fd, buf, strlen(buf));

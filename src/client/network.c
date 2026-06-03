@@ -49,11 +49,13 @@ int get_server_socket(const char *server_name, const char *port) {
 
 	freeaddrinfo(ai);
 
+	fcntl(server, F_SETFL, O_NONBLOCK);
+
 	return server;
 }
 
 int get_socker_socket(const char *server_name, const char *port) {
-	int sockfd;
+	int server;
 	struct addrinfo hints, *ai, *p;
 
 	memset(&hints, 0, sizeof hints);
@@ -68,21 +70,21 @@ int get_socker_socket(const char *server_name, const char *port) {
 
 	for (p = ai; p != NULL; p = p->ai_next) {
 
-		sockfd = socket(
+		server = socket(
 		    p->ai_family,
 		    p->ai_socktype,
 		    p->ai_protocol);
 
-		if (sockfd == -1) {
+		if (server == -1) {
 			perror("client: udp socket");
 			continue;
 		}
 
-		if (connect(sockfd,
+		if (connect(server,
 		            p->ai_addr,
 		            p->ai_addrlen) == -1) {
 
-			close(sockfd);
+			close(server);
 			perror("client: udp connect");
 			continue;
 		}
@@ -97,7 +99,9 @@ int get_socker_socket(const char *server_name, const char *port) {
 		return -1;
 	}
 
-	return sockfd;
+	fcntl(server, F_SETFL, O_NONBLOCK);
+
+	return server;
 }
 
 int sendall(int s, char *buf, int *len) {

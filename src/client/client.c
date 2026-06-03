@@ -23,8 +23,8 @@
 
 int main(int argc, char *argv[]) {
 
-	// Server Setup
-	int server;
+	// ---- Server Setup ----
+	int chat_server, socker_server;
 
 	if (argc != 3) {
 		fprintf(stderr, "Usage: pollclient <server> <port>\n");
@@ -34,39 +34,43 @@ int main(int argc, char *argv[]) {
 	const char *server_name = argv[1];
 	const char *port = argv[2];
 
-	server = get_server_socket(server_name, port);
+	// ---- Chat Server ----
+	chat_server = get_server_socket(server_name, port);
 
-	if (server == -1) {
+	if (chat_server == -1) {
 		fprintf(stderr, "error getting listening socket\n");
 		exit(1);
 	}
 
-	int socker_server = get_socker_socket(server_name, port);
+	// ---- Socker server ----
+	socker_server = get_socker_socket(server_name, port);
+
 	if (socker_server == -1) {
 		fprintf(stderr, "error getting udp socket\n");
 		exit(1);
 	}
 
+	// ---- Poll Setup ----
 	struct pollfd pfds[2];
-	pfds[0].fd = server;
+	pfds[0].fd = chat_server;
 	pfds[0].events = POLLIN;
 	pfds[1].fd = socker_server;
 	pfds[1].events = POLLIN;
 
-	// Name setup
+	// ---- Name setup ----
 	char name[20];
-	set_name(server, name, sizeof(name));
+	set_name(chat_server, name, sizeof(name));
 
-	// Messages setup
+	// ---- Messages setup ----
 	struct message *messages = NULL;
 	struct message *messages_tail = NULL;
 	int count = 0;
 
-	// Input setup
+	// ---- Input setup ----
 	char input[256] = {0};
 	int input_len = 0;
 
-	// ncurses setup
+	// ---- ncurses setup ----
 	signal(SIGINT, handle_sigint);
 	signal(SIGWINCH, handle_sigwinch);
 	initscr();
@@ -80,7 +84,7 @@ int main(int argc, char *argv[]) {
 	int y, x;
 	getmaxyx(stdscr, y, x);
 
-	// Color setup
+	// ---- Color setup ----
 	start_color();
 
 	if (!has_colors()) {
@@ -94,13 +98,18 @@ int main(int argc, char *argv[]) {
 
 	bkgd(COLOR_PAIR(1));
 
-	// Socker setup
+	// ---- Socker setup ----
 	int id = -1;
 	int height = 24;
 	int width = 80;
+
+	struct Socker sockerData;
+	init_socker(&sockerData, 1);
+
 	WINDOW *socker_win = newwin(height, width, (y - height) / 2, (x - width) / 2);
 	keypad(socker_win, TRUE);
 	nodelay(socker_win, TRUE);
+
 	werase(socker_win);
 
 	bool socker = false;
@@ -108,7 +117,7 @@ int main(int argc, char *argv[]) {
 	werase(socker_win);
 	wrefresh(socker_win);
 
-	// Messages setup
+	// ---- Messages setup ----
 	WINDOW *messages_win = newwin(y - 3, x, 0, 0);
 	WINDOW *input_win = newwin(3, x, y - 3, 0);
 	WINDOW *messages_text_win = derwin(messages_win, y - 5, x - 2, 1, 1);
@@ -119,7 +128,7 @@ int main(int argc, char *argv[]) {
 	keypad(input_win, TRUE);
 	nodelay(input_win, TRUE);
 
-	// Help setup
+	// ---- Help setup ----
 	WINDOW *help_win = newwin(height, width, (y - height) / 2, (x - width) / 2);
 	keypad(help_win, TRUE);
 	nodelay(help_win, TRUE);
@@ -129,7 +138,11 @@ int main(int argc, char *argv[]) {
 	werase(help_win);
 	wrefresh(help_win);
 
-	// Initial screen clear
+	// ---- Gamble setup ----
+	int gamble_amount = 1;
+	srand(time(NULL));
+
+	// ---- Initial screen clear ----
 	werase(messages_win);
 	box(messages_win, 0, 0);
 	wrefresh(messages_win);
@@ -139,15 +152,9 @@ int main(int argc, char *argv[]) {
 	mvwprintw(input_win, 1, 1, "> ");
 	wrefresh(input_win);
 
-	// Gamble setup
-	int gamble_amount = 1;
-	srand(time(NULL));
-
-	struct Socker sockerData;
-	init_socker(&sockerData, 1);
-
-	// Main loop
-	for (;;) {
+	// ---- Main loop ----
+	while (true) {
+		// ---- Polling ----
 		if (poll(pfds, 2, 50) == -1) {
 			if (errno == EINTR) continue;
 			endwin();
@@ -155,6 +162,7 @@ int main(int argc, char *argv[]) {
 			exit(1);
 		}
 
+		// ---- Window resize ----
 		if (terminal_resized) {
 			terminal_resized = 0;
 			endwin();
@@ -183,35 +191,64 @@ int main(int argc, char *argv[]) {
 			}
 		}
 
+		// ---- TCP Messages ----
 		if (pfds[0].revents & POLLIN) {
+			static char tcp_buf[4096] = {0};
+			static int tcp_buf_len = 0;
 			char buf[1024];
 
-			int n = recv(server, buf, sizeof(buf) - 1, 0);
+			while (true) {
+				int n = recv(chat_server, buf, sizeof(buf) - 1, 0);
 
-			if (n == 0) {
-				endwin();
-				close(server);
-				printf("Server closed connection\n");
-				break;
-			} else if (n < 0) {
-				endwin();
-				close(server);
-				perror("recv");
-				break;
-			}
-
-			buf[n] = '\0';
-
-			if (buf[0] != '/') {
-				add_message(&messages, &messages_tail, buf, &count);
-			} else {
-				if (strncmp(buf, "/data", 5) == 0) {
-					handle_socker_data(buf, &id, &sockerData);
-
-					if (socker) {
-						refresh_socker_window(socker_win, &sockerData);
+				if (n > 0) {
+					buf[n] = '\0';
+					if (tcp_buf_len + n < (int)sizeof(tcp_buf)) {
+						strncat(tcp_buf, buf, n);
+						tcp_buf_len += n;
+					}
+				} else if (n == 0) {
+					endwin();
+					close(chat_server);
+					printf("Server closed connection\n");
+					exit(0);
+				} else {
+					if (errno == EAGAIN || errno == EWOULDBLOCK) {
+						break;
+					} else {
+						endwin();
+						close(chat_server);
+						perror("recv");
+						exit(1);
 					}
 				}
+			}
+
+			char *newline;
+			bool socker_updated = false;
+
+			while ((newline = strchr(tcp_buf, '\n')) != NULL) {
+				int msg_len = newline - tcp_buf;
+				char msg[1024];
+
+				strncpy(msg, tcp_buf, msg_len);
+				msg[msg_len] = '\0';
+
+				if (msg[0] != '/') {
+					add_message(&messages, &messages_tail, msg, &count);
+
+				} else if (strncmp(msg, "/data", 5) == 0) {
+					handle_socker_data(msg, &id, &sockerData);
+					socker_updated = true;
+				}
+
+				int remaining = tcp_buf_len - msg_len - 1;
+				memmove(tcp_buf, newline + 1, remaining);
+				tcp_buf_len = remaining;
+				tcp_buf[tcp_buf_len] = '\0';
+			}
+
+			if (socker && socker_updated) {
+				refresh_socker_window(socker_win, &sockerData);
 			}
 
 			if (show_messages) {
@@ -219,9 +256,11 @@ int main(int argc, char *argv[]) {
 			}
 		}
 
+		// ---- UDP Messages ----
 		if (pfds[1].revents & POLLIN) {
 			char buf[1024];
 			int n = recv(socker_server, buf, sizeof(buf) - 1, 0);
+
 			if (n > 0) {
 				buf[n] = '\0';
 				if (strncmp(buf, "/data", 5) == 0) {
@@ -255,7 +294,7 @@ int main(int argc, char *argv[]) {
 							char msg[280];
 							snprintf(msg, sizeof(msg), "%s\n", input);
 							int msg_len = strlen(msg);
-							if (sendall(server, msg, &msg_len) == -1) {
+							if (sendall(chat_server, msg, &msg_len) == -1) {
 								fprintf(stderr, "failed sending to server\n");
 								perror("sendall");
 							}
@@ -301,7 +340,7 @@ int main(int argc, char *argv[]) {
 							char msg[280];
 							snprintf(msg, sizeof(msg), "%s:%s\n", name, input);
 							int msg_len = strlen(msg);
-							if (sendall(server, msg, &msg_len) == -1) {
+							if (sendall(chat_server, msg, &msg_len) == -1) {
 								fprintf(stderr, "failed sending to server\n");
 								perror("sendall");
 							}
@@ -346,7 +385,7 @@ int main(int argc, char *argv[]) {
 					char leave_buf[15];
 					snprintf(leave_buf, sizeof(leave_buf), "/leave %d\n", id);
 					int leave_len = strlen(leave_buf);
-					if (sendall(server, leave_buf, &leave_len) == -1) {
+					if (sendall(chat_server, leave_buf, &leave_len) == -1) {
 						fprintf(stderr, "failed sending to server\n");
 						perror("sendall");
 					}
@@ -366,36 +405,37 @@ int main(int argc, char *argv[]) {
 			}
 		}
 
-		// if (ch == KEY_RESIZE) {
-		// 	endwin();
+		if (ch == KEY_RESIZE) {
+			endwin();
 
-		// 	getmaxyx(stdscr, y, x);
-		// 	max_lines = y - 5;
+			getmaxyx(stdscr, y, x);
+			max_lines = y - 5;
 
-		// 	clear();
-		// 	refresh();
+			clear();
+			refresh();
 
-		// 	wresize(messages_win, y - 3, x);
-		// 	wresize(input_win, 3, x);
-		// 	wresize(messages_text_win, y - 5, x - 2);
-		// 	mvwin(input_win, y - 3, 0);
-		// 	mvwin(socker_win, (y - height) / 2, (x - width) / 2);
-		// 	wresize(help_win, y, x);
+			wresize(messages_win, y - 3, x);
+			wresize(input_win, 3, x);
+			wresize(messages_text_win, y - 5, x - 2);
+			mvwin(input_win, y - 3, 0);
+			mvwin(socker_win, (y - height) / 2, (x - width) / 2);
+			wresize(help_win, y, x);
 
-		// 	if (show_messages) {
-		// 		refresh_input_window(input_win, input, &input_len, x - 2);
-		// 		refresh_messages_window(messages_win, messages_text_win, &messages, &count, max_lines, x - 2);
-		// 	} else if (socker) {
-		// 		werase(socker_win);
-		// 		box(socker_win, 0, 0);
-		// 		wrefresh(socker_win);
-		// 	} else if (help) {
-		// 		draw_help_window(help_win);
-		// 	}
-		// }
+			if (show_messages) {
+				refresh_input_window(input_win, input, &input_len, x - 2);
+				refresh_messages_window(messages_win, messages_text_win, &messages, &count, max_lines, x - 2);
+			} else if (socker) {
+				werase(socker_win);
+				box(socker_win, 0, 0);
+				wrefresh(socker_win);
+			} else if (help) {
+				draw_help_window(help_win);
+			}
+		}
 	}
 	endwin();
-	close(server);
+	close(chat_server);
+	close(socker_server);
 
 	return 0;
 }

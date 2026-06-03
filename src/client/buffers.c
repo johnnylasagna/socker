@@ -35,8 +35,23 @@ int send_join_message(int server, char *name) {
 // Set name locally and on server
 void set_name(int server, char *name, size_t size) {
 	printf("Enter name to connect to chatroom with: ");
-	if (fgets(name, size, stdin) == NULL) {
+
+	if (fgets(name, size + 1, stdin) == NULL) {
 		fprintf(stderr, "error reading input stream\n");
+		exit(1);
+	}
+
+	int pos = strcspn(name, "\n");
+
+	if (name[pos] == '\n') {
+		name[pos] = '\0';
+
+	} else {
+		// Clear stream
+		int c;
+		while ((c = getchar()) != '\n' && c != EOF);
+
+		fprintf(stderr, "name must be 19 characters or fewer\n");
 		exit(1);
 	}
 
@@ -44,9 +59,6 @@ void set_name(int server, char *name, size_t size) {
 		fprintf(stderr, "error sending joining message\n");
 		exit(1);
 	}
-
-	int pos = strcspn(name, "\n");
-	name[pos] = '\0';
 }
 
 // Save recent chat contents

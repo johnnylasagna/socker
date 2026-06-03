@@ -29,41 +29,35 @@ void resize_socker(struct Socker *socker, int count) {
 }
 
 void handle_socker_data(char *buf, int *id, struct Socker *socker) {
-	char *line = strtok(buf, "\n");
+	int pos_x, pos_y;
 
-	while (line != NULL) {
-		int pos_x, pos_y;
-
-		if (strncmp(line, "/data id", strlen("/data id")) == 0) {
-			if (sscanf(line + strlen("/data id"), "%d", id) != 1) {
-				fprintf(stderr, "id malformed\n");
-			} else {
-				init_socker(socker, *id);
-			}
-
-		} else if (strncmp(line, "/data count", strlen("/data count")) == 0) {
-			int count;
-			if (sscanf(line + strlen("/data count"), "%d", &count) == 1) {
-				socker->player_count = count;
-				resize_socker(socker, count);
-			}
-
-		} else if (strncmp(line, "/data ball", strlen("/data ball")) == 0) {
-			if (sscanf(line + strlen("/data ball"), "%d %d", &pos_x, &pos_y) == 2) {
-				socker->ball_position[0] = pos_x;
-				socker->ball_position[1] = pos_y;
-			}
-
-		} else if (strncmp(line, "/data player", strlen("/data player")) == 0) {
-			int pos_id;
-
-			if (sscanf(line + strlen("/data player"), "%d %d %d", &pos_id, &pos_x, &pos_y) == 3) {
-				socker->player_positions[pos_id][0] = pos_x;
-				socker->player_positions[pos_id][1] = pos_y;
-			}
+	if (strncmp(buf, "/data id", strlen("/data id")) == 0) {
+		if (sscanf(buf + strlen("/data id"), "%d", id) != 1) {
+			fprintf(stderr, "id malformed\n");
+		} else {
+			init_socker(socker, *id);
 		}
 
-		line = strtok(NULL, "\n");
+	} else if (strncmp(buf, "/data count", strlen("/data count")) == 0) {
+		int count;
+		if (sscanf(buf + strlen("/data count"), "%d", &count) == 1) {
+			socker->player_count = count;
+			resize_socker(socker, count);
+		}
+
+	} else if (strncmp(buf, "/data ball", strlen("/data ball")) == 0) {
+		if (sscanf(buf + strlen("/data ball"), "%d %d", &pos_x, &pos_y) == 2) {
+			socker->ball_position[0] = pos_x;
+			socker->ball_position[1] = pos_y;
+		}
+
+	} else if (strncmp(buf, "/data player", strlen("/data player")) == 0) {
+		int pos_id;
+
+		if (sscanf(buf + strlen("/data player"), "%d %d %d", &pos_id, &pos_x, &pos_y) == 3) {
+			socker->player_positions[pos_id][0] = pos_x;
+			socker->player_positions[pos_id][1] = pos_y;
+		}
 	}
 }
 

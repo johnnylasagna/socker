@@ -152,7 +152,7 @@ void send_count_data(struct Socker *socker) {
 	snprintf(count_buf,
 	         sizeof(count_buf),
 	         "/data count %d\n",
-	         socker->player_count + 1);
+	         socker->player_count);
 
 	int count_len = strlen(count_buf);
 
@@ -177,7 +177,11 @@ void update_positions(struct Socker *socker, char *buf, struct sockaddr_storage 
 
 	if (sscanf(buf + 6, "%d %d %d", &id, &dx, &dy) != 3) {
 		fprintf(stderr, "malformed data received\n");
-		exit(1);
+		return;
+	}
+
+	if (id < 0 || id >= socker->player_count) {
+		return;
 	}
 
 	socker->player_udp_addrs[id] = *client_addr;
