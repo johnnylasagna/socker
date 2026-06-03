@@ -6,8 +6,6 @@ Print names of players on field with a key toggle
 Add an error window to handle user error
 
 ## Bug: Termination
-Handle termination during unexpected exit
+Handle termination during unexpected exit: Separate pollhup and pollin
 
 ## Feature: Sending files
-
-## Bug : There should be a receive all call just like send all

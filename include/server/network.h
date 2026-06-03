@@ -26,10 +26,11 @@ const char *inet_ntop2(void *addr, char *buf, size_t size);
 
 void *get_in_addr(struct sockaddr *sa);
 
-// Get listener socket for server
-int get_listener_socket(const char *port);
+// Get listener socket for chat server
+int get_chat_listener_socket(const char *port);
 
-int get_listener_socker(struct Socker *socker, const char *port);
+// Get listener socket for socker server
+int get_socker_listener_socket(struct Socker *socker, const char *port);
 
 // Send to all other clients
 void send_to_all_clients(int listener, int socker_listener, int *fd_count, struct pollfd *pfds, int *sender_fd, char *buf, size_t size);
@@ -46,11 +47,13 @@ void handle_new_connection(int listener, int *fd_count, int *fd_size, struct pol
 // Handle client messages
 void handle_client_data(int listener, int socker_listener, int *fd_count, struct pollfd *pfds, int *pfd_i, struct Socker *socker);
 
+// Handle socker data
 void handle_socker_data(int socker_listener, struct Socker *socker);
 
 // Process connections
 void process_connections(int listener, int socker_listener, int *fd_count, int *fd_size, struct pollfd **pfds, struct Socker *socker);
 
+// Fully send tcp stream to client
 int sendall(int s, char *buf, int *len);
 
 #endif // SERVER_NETWORK_H

@@ -33,30 +33,8 @@ void *get_in_addr(struct sockaddr *sa) {
 	}
 }
 
-int sendall(int s, char *buf, int *len) {
-	int total = 0;
-	int bytesleft = *len;
-	int n = 0;
-
-	while (total < *len) {
-		n = send(s, buf + total, bytesleft, 0);
-		if (n == -1) {
-			break;
-		}
-		total += n;
-		bytesleft -= n;
-	}
-
-	*len = total;
-	if (n == -1) {
-		return -1;
-	} else {
-		return 0;
-	}
-}
-
-// Get listener socket for server
-int get_listener_socket(const char *port) {
+// Get listener socket for chat server
+int get_chat_listener_socket(const char *port) {
 	int listener;
 	int yes = 1;
 	int rv;
@@ -105,7 +83,8 @@ int get_listener_socket(const char *port) {
 	return listener;
 }
 
-int get_listener_socker(struct Socker *socker, const char *port) {
+// Get listener socket for socker server
+int get_socker_listener_socket(struct Socker *socker, const char *port) {
 	int sockfd;
 	struct addrinfo hints, *servinfo, *p;
 	int rv;
@@ -230,13 +209,12 @@ void handle_client_data(int listener, int socker_listener, int *fd_count, struct
 
 		if (buf[0] == '/') {
 			if (strncmp(buf, "/quit", strlen("/quit")) == 0) {
-				char quit_buf[40];
-				snprintf(quit_buf, sizeof(quit_buf), "%s left\n", names[sender_fd]);
-
 				memset(names[sender_fd], 0, sizeof(names[sender_fd]));
 				close(sender_fd);
 				del_from_pfds(pfds, *pfd_i, fd_count);
 
+				char quit_buf[40];
+				snprintf(quit_buf, sizeof(quit_buf), "%s left\n", names[sender_fd]);
 				send_to_all_clients(listener, socker_listener, fd_count, pfds, &sender_fd, quit_buf, strlen(quit_buf));
 
 			} else if (strncmp(buf, "/name ", strlen("/name ")) == 0) {
@@ -251,7 +229,6 @@ void handle_client_data(int listener, int socker_listener, int *fd_count, struct
 
 				char name_buf[40];
 				snprintf(name_buf, sizeof(name_buf), "%s just joined us\n", names[sender_fd]);
-
 				send_to_all_clients(listener, socker_listener, fd_count, pfds, &sender_fd, name_buf, strlen(name_buf));
 
 			} else if (strncmp(buf, "/whisper ", strlen("/whisper ")) == 0) {
@@ -267,10 +244,10 @@ void handle_client_data(int listener, int socker_listener, int *fd_count, struct
 
 				memcpy(name_buf, buf + strlen("/whisper "), name_len);
 				name_buf[name_len] = '\0';
-
 				write_whispered_message(buf, whisper_msg_with_name, whisper_msg_with_name_size, name_len, &sender_fd);
 
 				int whispered_fd = get_fd_from_whispered_name(name_buf);
+
 				if (whispered_fd != -1) {
 					int whisper_len = strlen(whisper_msg_with_name);
 					if (sendall(whispered_fd, whisper_msg_with_name, &whisper_len) == -1) {
@@ -293,12 +270,15 @@ void handle_client_data(int listener, int socker_listener, int *fd_count, struct
 				int id = add_player_to_socker(socker, &udp_addr, sender_fd);
 				char id_buf[22];
 				snprintf(id_buf, sizeof(id_buf), "/data id %d\n", id);
+
 				int id_len = strlen(id_buf);
+
 				if (sendall(sender_fd, id_buf, &id_len) == -1) {
 					perror("send");
 				}
 
 				send_all_player_data(socker, id);
+
 			} else if (strncmp(buf, "/leave ", strlen("/leave ")) == 0) {
 				int id;
 
@@ -327,6 +307,7 @@ void handle_client_data(int listener, int socker_listener, int *fd_count, struct
 	}
 }
 
+// Handle socker data
 void handle_socker_data(int socker_listener, struct Socker *socker) {
 	char buf[256];
 
@@ -342,7 +323,7 @@ void handle_socker_data(int socker_listener, struct Socker *socker) {
 	if (n <= 0) {
 		// Connection closed
 		if (n == 0) {
-			printf("socker server: socket %s hung up\n", client_ip);
+			printf("socker server: socket %s hung up", client_ip);
 		} else {
 			perror("recvfrom");
 		}
@@ -359,17 +340,42 @@ void handle_socker_data(int socker_listener, struct Socker *socker) {
 }
 
 // Process connections
-void process_connections(int listener, int socker_listener, int *fd_count, int *fd_size, struct pollfd **pfds, struct Socker *socker) {
+void process_connections(int chat_listener, int socker_listener, int *fd_count, int *fd_size, struct pollfd **pfds, struct Socker *socker) {
 	// Separate pollhup and pollin later
 	for (int i = 0; i < *fd_count; i++) {
 		if ((*pfds)[i].revents & (POLLIN | POLLHUP)) {
-			if ((*pfds)[i].fd == listener) {
-				handle_new_connection(listener, fd_count, fd_size, pfds);
+			if ((*pfds)[i].fd == chat_listener) {
+				handle_new_connection(chat_listener, fd_count, fd_size, pfds);
+
 			} else if ((*pfds)[i].fd == socker_listener) {
 				handle_socker_data(socker_listener, socker);
+
 			} else {
-				handle_client_data(listener, socker_listener, fd_count, *pfds, &i, socker);
+				handle_client_data(chat_listener, socker_listener, fd_count, *pfds, &i, socker);
 			}
 		}
+	}
+}
+
+// Fully send tcp stream to client
+int sendall(int s, char *buf, int *len) {
+	int total = 0;
+	int bytesleft = *len;
+	int n = 0;
+
+	while (total < *len) {
+		n = send(s, buf + total, bytesleft, 0);
+		if (n == -1) {
+			break;
+		}
+		total += n;
+		bytesleft -= n;
+	}
+
+	*len = total;
+	if (n == -1) {
+		return -1;
+	} else {
+		return 0;
 	}
 }
