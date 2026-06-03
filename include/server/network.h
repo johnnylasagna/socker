@@ -24,11 +24,15 @@ struct Socker;
 // Convert IP address into printable format
 const char *inet_ntop2(void *addr, char *buf, size_t size);
 
+void *get_in_addr(struct sockaddr *sa);
+
 // Get listener socket for server
 int get_listener_socket(const char *port);
 
+int get_listener_socker(struct Socker *socker, const char *port);
+
 // Send to all other clients
-void send_to_all_clients(int listener, int *fd_count, struct pollfd *pfds, int *sender_fd, char *buf, size_t size);
+void send_to_all_clients(int listener, int socker_listener, int *fd_count, struct pollfd *pfds, int *sender_fd, char *buf, size_t size);
 
 // Add connected client to list
 void add_to_pfds(struct pollfd **pfds, int newfd, int *fd_count, int *fd_size);
@@ -40,10 +44,12 @@ void del_from_pfds(struct pollfd pfds[], int i, int *fd_count);
 void handle_new_connection(int listener, int *fd_count, int *fd_size, struct pollfd **pfds);
 
 // Handle client messages
-void handle_client_data(int listener, int *fd_count, struct pollfd *pfds, int *pfd_i, struct Socker *socker);
+void handle_client_data(int listener, int socker_listener, int *fd_count, struct pollfd *pfds, int *pfd_i, struct Socker *socker);
+
+void handle_socker_data(int socker_listener, struct Socker *socker);
 
 // Process connections
-void process_connections(int listener, int *fd_count, int *fd_size, struct pollfd **pfds, struct Socker *socker);
+void process_connections(int listener, int socker_listener, int *fd_count, int *fd_size, struct pollfd **pfds, struct Socker *socker);
 
 int sendall(int s, char *buf, int *len);
 

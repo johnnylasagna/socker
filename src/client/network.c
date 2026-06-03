@@ -11,7 +11,7 @@ void *get_in_addr(struct sockaddr *sa) {
 
 // Getting server socket from ip and port
 int get_server_socket(const char *server_name, const char *port) {
-	int server;
+	int server = -1;
 	int rv;
 
 	struct addrinfo hints, *ai, *p;
@@ -50,6 +50,54 @@ int get_server_socket(const char *server_name, const char *port) {
 	freeaddrinfo(ai);
 
 	return server;
+}
+
+int get_socker_socket(const char *server_name, const char *port) {
+	int sockfd;
+	struct addrinfo hints, *ai, *p;
+
+	memset(&hints, 0, sizeof hints);
+	hints.ai_family = AF_INET;
+	hints.ai_socktype = SOCK_DGRAM;
+
+	int rv;
+	if ((rv = getaddrinfo(server_name, port, &hints, &ai)) != 0) {
+		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
+		return -1;
+	}
+
+	for (p = ai; p != NULL; p = p->ai_next) {
+
+		sockfd = socket(
+		    p->ai_family,
+		    p->ai_socktype,
+		    p->ai_protocol);
+
+		if (sockfd == -1) {
+			perror("client: udp socket");
+			continue;
+		}
+
+		if (connect(sockfd,
+		            p->ai_addr,
+		            p->ai_addrlen) == -1) {
+
+			close(sockfd);
+			perror("client: udp connect");
+			continue;
+		}
+
+		break;
+	}
+
+	freeaddrinfo(ai);
+
+	if (p == NULL) {
+		fprintf(stderr, "client: failed to connect\n");
+		return -1;
+	}
+
+	return sockfd;
 }
 
 int sendall(int s, char *buf, int *len) {

@@ -24,6 +24,15 @@ const char *inet_ntop2(void *addr, char *buf, size_t size) {
 	return inet_ntop(sas->ss_family, src, buf, size);
 }
 
+// Getting address regardless of ipv6 or ipv4
+void *get_in_addr(struct sockaddr *sa) {
+	if (sa->sa_family == AF_INET) {
+		return &(((struct sockaddr_in *)sa)->sin_addr);
+	} else {
+		return &(((struct sockaddr_in6 *)sa)->sin6_addr);
+	}
+}
+
 int sendall(int s, char *buf, int *len) {
 	int total = 0;
 	int bytesleft = *len;
@@ -96,12 +105,54 @@ int get_listener_socket(const char *port) {
 	return listener;
 }
 
+int get_listener_socker(struct Socker *socker, const char *port) {
+	int sockfd;
+	struct addrinfo hints, *servinfo, *p;
+	int rv;
+
+	memset(&hints, 0, sizeof hints);
+	hints.ai_family = AF_INET;
+	hints.ai_socktype = SOCK_DGRAM;
+	hints.ai_flags = AI_PASSIVE;
+
+	if ((rv = getaddrinfo(NULL, port, &hints, &servinfo)) != 0) {
+		fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
+		return 1;
+	}
+
+	for (p = servinfo; p != NULL; p = p->ai_next) {
+		if ((sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) ==
+		    -1) {
+			perror("listener: socket");
+			continue;
+		}
+
+		if (bind(sockfd, p->ai_addr, p->ai_addrlen) == -1) {
+			close(sockfd);
+			perror("listener: bind");
+			continue;
+		}
+		break;
+	}
+
+	if (p == NULL) {
+		fprintf(stderr, "Listener: failed to bind socket\n");
+		exit(1);
+	}
+
+	freeaddrinfo(servinfo);
+
+	socker->server = sockfd;
+
+	return sockfd;
+}
+
 // Send to all other clients
-void send_to_all_clients(int listener, int *fd_count, struct pollfd *pfds, int *sender_fd, char *buf, size_t size) {
+void send_to_all_clients(int listener, int socker_listener, int *fd_count, struct pollfd *pfds, int *sender_fd, char *buf, size_t size) {
 	for (int j = 0; j < *fd_count; j++) {
 		int dest_fd = pfds[j].fd;
 
-		if (dest_fd != listener && dest_fd != *sender_fd) {
+		if (dest_fd != listener && dest_fd != socker_listener && dest_fd != *sender_fd) {
 			int buf_len = strlen(buf);
 			if (sendall(dest_fd, buf, &buf_len) == -1) {
 				perror("send");
@@ -153,7 +204,7 @@ void handle_new_connection(int listener, int *fd_count, int *fd_size, struct pol
 }
 
 // Handle client messages
-void handle_client_data(int listener, int *fd_count, struct pollfd *pfds, int *pfd_i, struct Socker *socker) {
+void handle_client_data(int listener, int socker_listener, int *fd_count, struct pollfd *pfds, int *pfd_i, struct Socker *socker) {
 	char buf[256];
 
 	int n = recv(pfds[*pfd_i].fd, buf, sizeof(buf) - 1, 0);
@@ -172,6 +223,7 @@ void handle_client_data(int listener, int *fd_count, struct pollfd *pfds, int *p
 		del_from_pfds(pfds, *pfd_i, fd_count);
 
 		(*pfd_i)--;
+
 	} else {
 		buf[n] = '\0';
 		printf("pollserver: recv from fd %d: %.*s", sender_fd, n, buf);
@@ -185,7 +237,7 @@ void handle_client_data(int listener, int *fd_count, struct pollfd *pfds, int *p
 				close(sender_fd);
 				del_from_pfds(pfds, *pfd_i, fd_count);
 
-				send_to_all_clients(listener, fd_count, pfds, &sender_fd, quit_buf, strlen(quit_buf));
+				send_to_all_clients(listener, socker_listener, fd_count, pfds, &sender_fd, quit_buf, strlen(quit_buf));
 
 			} else if (strncmp(buf, "/name", 5) == 0) {
 				size_t len = strcspn(buf + 6, "\n");
@@ -200,7 +252,7 @@ void handle_client_data(int listener, int *fd_count, struct pollfd *pfds, int *p
 				char name_buf[40];
 				snprintf(name_buf, sizeof(name_buf), "%s just joined us\n", names[sender_fd]);
 
-				send_to_all_clients(listener, fd_count, pfds, &sender_fd, name_buf, strlen(name_buf));
+				send_to_all_clients(listener, socker_listener, fd_count, pfds, &sender_fd, name_buf, strlen(name_buf));
 
 			} else if (strncmp(buf, "/whisper ", 9) == 0) {
 				char whisper_msg_with_name[280];
@@ -229,10 +281,18 @@ void handle_client_data(int listener, int *fd_count, struct pollfd *pfds, int *p
 			} else if (strncmp(buf, "/save", 5) == 0) {
 				char save_buf[40];
 				snprintf(save_buf, sizeof(save_buf), "%s saved the chat locally\n", names[sender_fd]);
-				send_to_all_clients(listener, fd_count, pfds, &sender_fd, save_buf, strlen(save_buf));
+				send_to_all_clients(listener, socker_listener, fd_count, pfds, &sender_fd, save_buf, strlen(save_buf));
 
 			} else if (strncmp(buf, "/socker", 7) == 0) {
-				int id = add_player_to_socker(socker, sender_fd);
+				char socker_buf[40];
+				snprintf(socker_buf, sizeof(socker_buf), "%s joined socker\n", names[sender_fd]);
+				send_to_all_clients(listener, socker_listener, fd_count, pfds, &sender_fd, socker_buf, strlen(socker_buf));
+
+				struct sockaddr_storage udp_addr;
+				socklen_t addr_len = sizeof(udp_addr);
+				getpeername(sender_fd, (struct sockaddr *)&udp_addr, &addr_len);
+
+				int id = add_player_to_socker(socker, &udp_addr, sender_fd);
 				char id_buf[22];
 				snprintf(id_buf, sizeof(id_buf), "/data id %d\n", id);
 				int id_len = strlen(id_buf);
@@ -240,15 +300,7 @@ void handle_client_data(int listener, int *fd_count, struct pollfd *pfds, int *p
 					perror("send");
 				}
 
-				char socker_buf[40];
-				snprintf(socker_buf, sizeof(socker_buf), "%s joined socker\n", names[sender_fd]);
-				send_to_all_clients(listener, fd_count, pfds, &sender_fd, socker_buf, strlen(socker_buf));
-
 				send_all_player_data(socker, id);
-
-			} else if (strncmp(buf, "/data", 5) == 0) {
-				update_positions(socker, buf);
-
 			} else if (strncmp(buf, "/leave", 6) == 0) {
 				int id;
 
@@ -263,26 +315,60 @@ void handle_client_data(int listener, int *fd_count, struct pollfd *pfds, int *p
 				snprintf(new_id_buf, sizeof(new_id_buf), "/data id %d\n", id);
 
 				int new_id_len = strlen(new_id_buf);
-				if (sendall(socker->player_fds[old_id], new_id_buf, &new_id_len) == -1) {
+				if (sendall(socker->player_tcp_fds[old_id], new_id_buf, &new_id_len) == -1) {
 					perror("send");
 				}
 
 				send_all_player_data(socker, id);
 			}
 		} else {
-			send_to_all_clients(listener, fd_count, pfds, &sender_fd, buf, strlen(buf));
+			send_to_all_clients(listener, socker_listener, fd_count, pfds, &sender_fd, buf, strlen(buf));
+		}
+	}
+}
+
+void handle_socker_data(int socker_listener, struct Socker *socker) {
+	char buf[256];
+
+	struct sockaddr_storage client_addr;
+	socklen_t addrlen = sizeof(client_addr);
+
+	int n = recvfrom(socker_listener, buf, sizeof(buf) - 1, 0, (struct sockaddr *)&client_addr, &addrlen);
+
+	char client_ip[INET_ADDRSTRLEN];
+	inet_ntop(client_addr.ss_family,
+	          get_in_addr((struct sockaddr *)&client_addr), client_ip, sizeof client_ip);
+
+	if (n <= 0) {
+		// Connection closed
+		if (n == 0) {
+			printf("socker server: socket %s hung up\n", client_ip);
+		} else {
+			perror("recvfrom");
+		}
+	} else {
+		buf[n] = '\0';
+		printf("socker server: recv from fd %s: %.*s", client_ip, n, buf);
+
+		if (buf[0] == '/') {
+			if (strncmp(buf, "/data", 5) == 0) {
+				update_positions(socker, buf, &client_addr);
+			}
 		}
 	}
 }
 
 // Process connections
-void process_connections(int listener, int *fd_count, int *fd_size, struct pollfd **pfds, struct Socker *socker) {
+void process_connections(int listener, int socker_listener, int *fd_count, int *fd_size, struct pollfd **pfds, struct Socker *socker) {
+	// Separate pollhup and pollin later
 	for (int i = 0; i < *fd_count; i++) {
 		if ((*pfds)[i].revents & (POLLIN | POLLHUP)) {
 			if ((*pfds)[i].fd == listener) {
 				handle_new_connection(listener, fd_count, fd_size, pfds);
+			} else if ((*pfds)[i].fd == socker_listener) {
+				handle_socker_data(socker_listener, socker);
 			} else {
-				handle_client_data(listener, fd_count, *pfds, &i, socker);
+				handle_client_data(listener, socker_listener, fd_count, *pfds, &i, socker);
 			}
 		}
 	}

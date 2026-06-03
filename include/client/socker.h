@@ -10,7 +10,6 @@ struct Socker {
 	int ball_position[2];
 	int player_count;
 	int player_size;
-	int *player_fds;
 	int (*player_positions)[2];
 };
 

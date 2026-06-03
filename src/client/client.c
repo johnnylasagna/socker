@@ -41,9 +41,17 @@ int main(int argc, char *argv[]) {
 		exit(1);
 	}
 
-	struct pollfd pfd;
-	pfd.fd = server;
-	pfd.events = POLLIN;
+	int socker_server = get_socker_socket(server_name, port);
+	if (socker_server == -1) {
+		fprintf(stderr, "error getting udp socket\n");
+		exit(1);
+	}
+
+	struct pollfd pfds[2];
+	pfds[0].fd = server;
+	pfds[0].events = POLLIN;
+	pfds[1].fd = socker_server;
+	pfds[1].events = POLLIN;
 
 	// Name setup
 	char name[20];
@@ -140,7 +148,7 @@ int main(int argc, char *argv[]) {
 
 	// Main loop
 	for (;;) {
-		if (poll(&pfd, 1, 50) == -1) {
+		if (poll(pfds, 2, 50) == -1) {
 			if (errno == EINTR) continue;
 			endwin();
 			perror("poll");
@@ -175,7 +183,7 @@ int main(int argc, char *argv[]) {
 			}
 		}
 
-		if (pfd.revents & POLLIN) {
+		if (pfds[0].revents & POLLIN) {
 			char buf[1024];
 
 			int n = recv(server, buf, sizeof(buf) - 1, 0);
@@ -199,12 +207,29 @@ int main(int argc, char *argv[]) {
 			} else {
 				if (strncmp(buf, "/data", 5) == 0) {
 					handle_socker_data(buf, &id, &sockerData);
-					refresh_socker_window(socker_win, &sockerData);
+
+					if (socker) {
+						refresh_socker_window(socker_win, &sockerData);
+					}
 				}
 			}
 
 			if (show_messages) {
 				refresh_messages_window(messages_win, messages_text_win, &messages, &count, max_lines, x - 2);
+			}
+		}
+
+		if (pfds[1].revents & POLLIN) {
+			char buf[1024];
+			int n = recv(socker_server, buf, sizeof(buf) - 1, 0);
+			if (n > 0) {
+				buf[n] = '\0';
+				if (strncmp(buf, "/data", 5) == 0) {
+					handle_socker_data(buf, &id, &sockerData);
+					if (socker) {
+						refresh_socker_window(socker_win, &sockerData);
+					}
+				}
 			}
 		}
 
@@ -327,7 +352,7 @@ int main(int argc, char *argv[]) {
 					}
 
 				} else {
-					handle_socker_input(ch, server, id);
+					handle_socker_input(ch, socker_server, id);
 				}
 			}
 		} else if (help) {

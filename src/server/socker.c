@@ -6,11 +6,11 @@ void init_socker(struct Socker *socker) {
 	socker->player_count = 0;
 	socker->player_size = 10;
 
-	socker->player_fds = malloc(sizeof(int) * socker->player_size);
-
+	socker->player_udp_addrs = malloc(sizeof(struct sockaddr_storage) * socker->player_size);
+	socker->player_tcp_fds = malloc(sizeof(int) * socker->player_size);
 	socker->player_positions = malloc(sizeof(int[2]) * socker->player_size);
 
-	if (socker->player_fds == NULL || socker->player_positions == NULL) {
+	if (socker->player_tcp_fds == NULL || socker->player_udp_addrs == NULL || socker->player_positions == NULL) {
 		perror("malloc");
 		exit(1);
 	}
@@ -23,12 +23,15 @@ void init_socker(struct Socker *socker) {
 }
 
 // Add player to socker
-int add_player_to_socker(struct Socker *socker, int fd) {
+int add_player_to_socker(struct Socker *socker, struct sockaddr_storage *addr, int tcp_fd) {
 	if (socker->player_count == socker->player_size) {
 		socker->player_size *= 2;
-		socker->player_fds = realloc(socker->player_fds, sizeof(int) * socker->player_size);
+
+		socker->player_udp_addrs = realloc(socker->player_udp_addrs, sizeof(struct sockaddr_storage) * socker->player_size);
+		socker->player_tcp_fds = realloc(socker->player_tcp_fds, sizeof(int) * socker->player_size);
 		socker->player_positions = realloc(socker->player_positions, sizeof(int[2]) * socker->player_size);
-		if (socker->player_fds == NULL || socker->player_positions == NULL) {
+
+		if (socker->player_tcp_fds == NULL || socker->player_udp_addrs == NULL || socker->player_positions == NULL) {
 			perror("realloc");
 			exit(1);
 		}
@@ -36,7 +39,8 @@ int add_player_to_socker(struct Socker *socker, int fd) {
 
 	int idx = socker->player_count;
 
-	socker->player_fds[idx] = fd;
+	socker->player_udp_addrs[idx] = *addr;
+	socker->player_tcp_fds[idx] = tcp_fd;
 	socker->player_positions[idx][0] = socker->field_size[0] / 2;
 	socker->player_positions[idx][1] = socker->field_size[1] / 2;
 
@@ -51,7 +55,8 @@ int add_player_to_socker(struct Socker *socker, int fd) {
 int delete_player(struct Socker *socker, int index) {
 	int last = socker->player_count - 1;
 
-	socker->player_fds[index] = socker->player_fds[last];
+	socker->player_udp_addrs[index] = socker->player_udp_addrs[last];
+	socker->player_tcp_fds[index] = socker->player_tcp_fds[last];
 	socker->player_positions[index][0] = socker->player_positions[last][0];
 	socker->player_positions[index][1] = socker->player_positions[last][1];
 
@@ -90,7 +95,7 @@ void send_all_player_data(struct Socker *socker, int id) {
 		    socker->player_positions[j][1]);
 	}
 
-	int dest_fd = socker->player_fds[id];
+	int dest_fd = socker->player_tcp_fds[id];
 
 	int position_len = offset;
 
@@ -112,10 +117,11 @@ void send_player_data(struct Socker *socker, int id) {
 	int position_len = strlen(position_buf);
 
 	for (int i = 0; i < socker->player_count; i++) {
-		int dest_fd = socker->player_fds[i];
+		struct sockaddr_storage dest_fd = socker->player_udp_addrs[i];
+		socklen_t addr_len = sizeof(dest_fd);
 
-		if (sendall(dest_fd, position_buf, &position_len) == -1) {
-			perror("send");
+		if (sendto(socker->server, position_buf, position_len, 0, (struct sockaddr *)&dest_fd, addr_len) == -1) {
+			perror("sendto");
 		}
 	}
 }
@@ -131,10 +137,11 @@ void send_ball_data(struct Socker *socker) {
 	int ball_len = strlen(ball_buf);
 
 	for (int i = 0; i < socker->player_count; i++) {
-		int dest_fd = socker->player_fds[i];
+		struct sockaddr_storage dest_fd = socker->player_udp_addrs[i];
+		socklen_t addr_len = sizeof(dest_fd);
 
-		if (sendall(dest_fd, ball_buf, &ball_len) == -1) {
-			perror("send");
+		if (sendto(socker->server, ball_buf, ball_len, 0, (struct sockaddr *)&dest_fd, addr_len) == -1) {
+			perror("sendto");
 		}
 	}
 }
@@ -150,7 +157,7 @@ void send_count_data(struct Socker *socker) {
 	int count_len = strlen(count_buf);
 
 	for (int i = 0; i < socker->player_count; i++) {
-		int dest_fd = socker->player_fds[i];
+		int dest_fd = socker->player_tcp_fds[i];
 
 		if (sendall(dest_fd, count_buf, &count_len) == -1) {
 			perror("send");
@@ -163,7 +170,7 @@ void reset_ball_position(struct Socker *socker) {
 	socker->ball_position[1] = socker->field_size[1] / 2;
 }
 
-void update_positions(struct Socker *socker, char *buf) {
+void update_positions(struct Socker *socker, char *buf, struct sockaddr_storage *client_addr) {
 	int id;
 	int dx;
 	int dy;
@@ -172,6 +179,9 @@ void update_positions(struct Socker *socker, char *buf) {
 		fprintf(stderr, "malformed data received\n");
 		exit(1);
 	}
+
+	socker->player_udp_addrs[id] = *client_addr;
+
 	if (dx == 1) {
 		if (socker->player_positions[id][0] != socker->field_size[0] - 1)
 			socker->player_positions[id][0] += 1;

@@ -1,15 +1,13 @@
 #include "../../include/client/socker.h"
-#include "../../include/server/network.h"
+#include "../../include/client/network.h"
 
 void init_socker(struct Socker *socker, int id) {
 	socker->player_count = 0;
 	socker->player_size = id + 1;
 
-	socker->player_fds = malloc(sizeof(int) * socker->player_size);
-
 	socker->player_positions = malloc(sizeof(int[2]) * socker->player_size);
 
-	if (socker->player_fds == NULL || socker->player_positions == NULL) {
+	if (socker->player_positions == NULL) {
 		perror("malloc");
 		exit(1);
 	}
@@ -23,9 +21,8 @@ void init_socker(struct Socker *socker, int id) {
 
 void resize_socker(struct Socker *socker, int count) {
 	socker->player_size = 2 * count + 1;
-	socker->player_fds = realloc(socker->player_fds, sizeof(int) * socker->player_size);
 	socker->player_positions = realloc(socker->player_positions, sizeof(int[2]) * socker->player_size);
-	if (socker->player_fds == NULL || socker->player_positions == NULL) {
+	if (socker->player_positions == NULL) {
 		perror("realloc");
 		exit(1);
 	}
@@ -70,14 +67,14 @@ void handle_socker_data(char *buf, int *id, struct Socker *socker) {
 	}
 }
 
-void handle_socker_input(char ch, int server, int id) {
+void handle_socker_input(char ch, int socker_server, int id) {
 	if (ch == 'w') {
 		char data_buf[15];
 		snprintf(data_buf, sizeof(data_buf), "/data %d 0 2\n", id);
 
 		int data_len = strlen(data_buf);
 
-		if (sendall(server, data_buf, &data_len) == -1) {
+		if (send(socker_server, data_buf, data_len, 0) == -1) {
 			fprintf(stderr, "failed sending to server\n");
 			perror("sendall");
 		}
@@ -87,7 +84,7 @@ void handle_socker_input(char ch, int server, int id) {
 		snprintf(data_buf, sizeof(data_buf), "/data %d 2 0\n", id);
 
 		int data_len = strlen(data_buf);
-		if (sendall(server, data_buf, &data_len) == -1) {
+		if (send(socker_server, data_buf, data_len, 0) == -1) {
 			fprintf(stderr, "failed sending to server\n");
 			perror("sendall");
 		}
@@ -97,7 +94,7 @@ void handle_socker_input(char ch, int server, int id) {
 		snprintf(data_buf, sizeof(data_buf), "/data %d 0 1\n", id);
 
 		int data_len = strlen(data_buf);
-		if (sendall(server, data_buf, &data_len) == -1) {
+		if (send(socker_server, data_buf, data_len, 0) == -1) {
 			fprintf(stderr, "failed sending to server\n");
 			perror("sendall");
 		}
@@ -107,7 +104,7 @@ void handle_socker_input(char ch, int server, int id) {
 		snprintf(data_buf, sizeof(data_buf), "/data %d 1 0\n", id);
 
 		int data_len = strlen(data_buf);
-		if (sendall(server, data_buf, &data_len) == -1) {
+		if (send(socker_server, data_buf, data_len, 0) == -1) {
 			fprintf(stderr, "failed sending to server\n");
 			perror("sendall");
 		}

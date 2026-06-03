@@ -23,6 +23,8 @@ void *get_in_addr(struct sockaddr *sa);
 // Getting server socket from ip and port
 int get_server_socket(const char *server_name, const char *port);
 
+int get_socker_socket(const char *server_name, const char *port);
+
 int sendall(int s, char *buf, int *len);
 
 #ifdef __cplusplus

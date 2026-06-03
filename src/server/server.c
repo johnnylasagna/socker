@@ -24,7 +24,7 @@ bool debug = true;
 int main(int argc, char *argv[]) {
 
 	// Listener setup
-	int listener;
+	int listener, socker_listener;
 
 	int fd_size = 10;
 	int fd_count = 0;
@@ -56,6 +56,19 @@ int main(int argc, char *argv[]) {
 	struct Socker socker;
 	init_socker(&socker);
 
+	socker_listener = get_listener_socker(&socker, port);
+	if (socker_listener == -1) {
+		fprintf(stderr, "error getting socker socker\n");
+		exit(1);
+	}
+
+	puts("socker: server successfully started\n");
+
+	pfds[1].fd = socker_listener;
+	pfds[1].events = POLLIN;
+
+	fd_count = 2;
+
 	// Main loop
 	for (;;) {
 		int poll_count = poll(pfds, fd_count, -1);
@@ -65,7 +78,7 @@ int main(int argc, char *argv[]) {
 			exit(1);
 		}
 
-		process_connections(listener, &fd_count, &fd_size, &pfds, &socker);
+		process_connections(listener, socker_listener, &fd_count, &fd_size, &pfds, &socker);
 	}
 
 	return 0;
