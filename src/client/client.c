@@ -71,72 +71,36 @@ int main(int argc, char *argv[]) {
 	int input_len = 0;
 
 	// ---- ncurses setup ----
-	signal(SIGINT, handle_sigint);
-	signal(SIGWINCH, handle_sigwinch);
-	initscr();
-	cbreak();
-	noecho();
-	keypad(stdscr, TRUE);
-	nodelay(stdscr, TRUE);
-	mousemask(0, NULL);
-	curs_set(0);
+	init_ncurses();
 
 	int y, x;
 	getmaxyx(stdscr, y, x);
 
+	int max_lines = y - 5;
+
 	// ---- Color setup ----
-	start_color();
-
-	if (!has_colors()) {
-		endwin();
-		printf("No color support\n");
-		return 1;
-	}
-
-	init_pair(1, COLOR_RED, COLOR_BLACK);
-	init_pair(2, COLOR_BLUE, COLOR_BLACK);
-
-	bkgd(COLOR_PAIR(1));
+	init_colors();
 
 	// ---- Socker setup ----
+	struct Socker socker_data;
+	init_socker(&socker_data, 1);
 	int id = -1;
-	int height = 24;
-	int width = 80;
 
-	struct Socker sockerData;
-	init_socker(&sockerData, 1);
-
-	WINDOW *socker_win = newwin(height, width, (y - height) / 2, (x - width) / 2);
-	keypad(socker_win, TRUE);
-	nodelay(socker_win, TRUE);
-
-	werase(socker_win);
+	WINDOW *socker_win = init_socker_window(y, x);
 
 	bool socker = false;
 
-	werase(socker_win);
-	wrefresh(socker_win);
-
 	// ---- Messages setup ----
-	WINDOW *messages_win = newwin(y - 3, x, 0, 0);
-	WINDOW *input_win = newwin(3, x, y - 3, 0);
-	WINDOW *messages_text_win = derwin(messages_win, y - 5, x - 2, 1, 1);
-	int max_lines = y - 5;
+	WINDOW *messages_win = init_messages_window(y, x);
+	WINDOW *input_win = init_input_window(y, x);
+	WINDOW *messages_text_win = init_messages_text_window(messages_win, y, x);
 
 	bool show_messages = true;
 
-	keypad(input_win, TRUE);
-	nodelay(input_win, TRUE);
-
 	// ---- Help setup ----
-	WINDOW *help_win = newwin(height, width, (y - height) / 2, (x - width) / 2);
-	keypad(help_win, TRUE);
-	nodelay(help_win, TRUE);
+	WINDOW *help_win = init_help_window(y, x);
 
 	bool help = false;
-
-	werase(help_win);
-	wrefresh(help_win);
 
 	// ---- Gamble setup ----
 	int gamble_amount = 1;
@@ -172,20 +136,13 @@ int main(int argc, char *argv[]) {
 			getmaxyx(stdscr, y, x);
 			max_lines = y - 5;
 
-			wresize(messages_win, y - 3, x);
-			wresize(input_win, 3, x);
-			wresize(messages_text_win, y - 5, x - 2);
-			mvwin(input_win, y - 3, 0);
-			mvwin(socker_win, (y - height) / 2, (x - width) / 2);
-			mvwin(help_win, (y - height) / 2, (x - width) / 2);
+			resize_windows(messages_win, input_win, messages_text_win, socker_win, help_win, y, x);
 
 			if (show_messages) {
 				refresh_input_window(input_win, input, &input_len, x - 2);
 				refresh_messages_window(messages_win, messages_text_win, &messages, &count, max_lines, x - 2);
 			} else if (socker) {
-				werase(socker_win);
-				box(socker_win, 0, 0);
-				wrefresh(socker_win);
+				refresh_socker_window(socker_win, &socker_data);
 			} else if (help) {
 				draw_help_window(help_win);
 			}
@@ -237,7 +194,7 @@ int main(int argc, char *argv[]) {
 					add_message(&messages, &messages_tail, msg, &count);
 
 				} else if (strncmp(msg, "/data", 5) == 0) {
-					handle_socker_data(msg, &id, &sockerData);
+					handle_socker_data(msg, &id, &socker_data);
 					socker_updated = true;
 				}
 
@@ -248,7 +205,7 @@ int main(int argc, char *argv[]) {
 			}
 
 			if (socker && socker_updated) {
-				refresh_socker_window(socker_win, &sockerData);
+				refresh_socker_window(socker_win, &socker_data);
 			}
 
 			if (show_messages) {
@@ -264,9 +221,9 @@ int main(int argc, char *argv[]) {
 			if (n > 0) {
 				buf[n] = '\0';
 				if (strncmp(buf, "/data", 5) == 0) {
-					handle_socker_data(buf, &id, &sockerData);
+					handle_socker_data(buf, &id, &socker_data);
 					if (socker) {
-						refresh_socker_window(socker_win, &sockerData);
+						refresh_socker_window(socker_win, &socker_data);
 					}
 				}
 			}
@@ -377,8 +334,8 @@ int main(int argc, char *argv[]) {
 				if (ch == 'q') {
 					socker = false;
 					show_messages = true;
-					werase(socker_win);
-					wrefresh(socker_win);
+
+					hide_socker_window(socker_win);
 					refresh_input_window(input_win, input, &input_len, x - 2);
 					refresh_messages_window(messages_win, messages_text_win, &messages, &count, max_lines, x - 2);
 
@@ -407,32 +364,25 @@ int main(int argc, char *argv[]) {
 
 		if (ch == KEY_RESIZE) {
 			endwin();
+			clear();
+			refresh();
 
 			getmaxyx(stdscr, y, x);
 			max_lines = y - 5;
 
-			clear();
-			refresh();
-
-			wresize(messages_win, y - 3, x);
-			wresize(input_win, 3, x);
-			wresize(messages_text_win, y - 5, x - 2);
-			mvwin(input_win, y - 3, 0);
-			mvwin(socker_win, (y - height) / 2, (x - width) / 2);
-			wresize(help_win, y, x);
+			resize_windows(messages_win, input_win, messages_text_win, socker_win, help_win, y, x);
 
 			if (show_messages) {
 				refresh_input_window(input_win, input, &input_len, x - 2);
 				refresh_messages_window(messages_win, messages_text_win, &messages, &count, max_lines, x - 2);
 			} else if (socker) {
-				werase(socker_win);
-				box(socker_win, 0, 0);
-				wrefresh(socker_win);
+				refresh_socker_window(socker_win, &socker_data);
 			} else if (help) {
 				draw_help_window(help_win);
 			}
 		}
 	}
+
 	endwin();
 	close(chat_server);
 	close(socker_server);
