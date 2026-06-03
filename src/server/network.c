@@ -229,7 +229,7 @@ void handle_client_data(int listener, int socker_listener, int *fd_count, struct
 		printf("pollserver: recv from fd %d: %.*s", sender_fd, n, buf);
 
 		if (buf[0] == '/') {
-			if (strncmp(buf, "/quit", 5) == 0) {
+			if (strncmp(buf, "/quit", strlen("/quit")) == 0) {
 				char quit_buf[40];
 				snprintf(quit_buf, sizeof(quit_buf), "%s left\n", names[sender_fd]);
 
@@ -239,13 +239,13 @@ void handle_client_data(int listener, int socker_listener, int *fd_count, struct
 
 				send_to_all_clients(listener, socker_listener, fd_count, pfds, &sender_fd, quit_buf, strlen(quit_buf));
 
-			} else if (strncmp(buf, "/name", 5) == 0) {
-				size_t len = strcspn(buf + 6, "\n");
+			} else if (strncmp(buf, "/name ", strlen("/name ")) == 0) {
+				size_t len = strcspn(buf + strlen("/name "), "\n");
 
 				if (len >= sizeof(names[sender_fd]))
 					len = sizeof(names[sender_fd]) - 1;
 
-				memcpy(names[sender_fd], buf + 6, len);
+				memcpy(names[sender_fd], buf + strlen("/name "), len);
 				names[sender_fd][len] = '\0';
 				printf("Name saved at fd %d: %s\n", sender_fd, names[sender_fd]);
 
@@ -254,18 +254,18 @@ void handle_client_data(int listener, int socker_listener, int *fd_count, struct
 
 				send_to_all_clients(listener, socker_listener, fd_count, pfds, &sender_fd, name_buf, strlen(name_buf));
 
-			} else if (strncmp(buf, "/whisper ", 9) == 0) {
+			} else if (strncmp(buf, "/whisper ", strlen("/whisper ")) == 0) {
 				char whisper_msg_with_name[280];
 				size_t whisper_msg_with_name_size = sizeof(whisper_msg_with_name);
 
 				char name_buf[20];
-				size_t name_len = strcspn(buf + 9, " ");
+				size_t name_len = strcspn(buf + strlen("/whisper "), " ");
 
 				if (name_len >= sizeof(name_buf)) {
 					name_len = sizeof(name_buf) - 1;
 				}
 
-				memcpy(name_buf, buf + 9, name_len);
+				memcpy(name_buf, buf + strlen("/whisper "), name_len);
 				name_buf[name_len] = '\0';
 
 				write_whispered_message(buf, whisper_msg_with_name, whisper_msg_with_name_size, name_len, &sender_fd);
@@ -278,12 +278,12 @@ void handle_client_data(int listener, int socker_listener, int *fd_count, struct
 					}
 				}
 
-			} else if (strncmp(buf, "/save", 5) == 0) {
+			} else if (strncmp(buf, "/save", strlen("/save")) == 0) {
 				char save_buf[40];
 				snprintf(save_buf, sizeof(save_buf), "%s saved the chat locally\n", names[sender_fd]);
 				send_to_all_clients(listener, socker_listener, fd_count, pfds, &sender_fd, save_buf, strlen(save_buf));
 
-			} else if (strncmp(buf, "/socker", 7) == 0) {
+			} else if (strncmp(buf, "/socker", strlen("/socker")) == 0) {
 				char socker_buf[40];
 				snprintf(socker_buf, sizeof(socker_buf), "%s joined socker\n", names[sender_fd]);
 				send_to_all_clients(listener, socker_listener, fd_count, pfds, &sender_fd, socker_buf, strlen(socker_buf));
@@ -299,10 +299,10 @@ void handle_client_data(int listener, int socker_listener, int *fd_count, struct
 				}
 
 				send_all_player_data(socker, id);
-			} else if (strncmp(buf, "/leave", 6) == 0) {
+			} else if (strncmp(buf, "/leave ", strlen("/leave ")) == 0) {
 				int id;
 
-				if (sscanf(buf + strlen("/leave"), "%d", &id) != 1) {
+				if (sscanf(buf + strlen("/leave "), "%d", &id) != 1) {
 					fprintf(stderr, "malformed leave received\n");
 					return;
 				}
@@ -317,7 +317,6 @@ void handle_client_data(int listener, int socker_listener, int *fd_count, struct
 					perror("send");
 				}
 
-				// Fully send all data again to every client
 				for (int i = 0; i < socker->player_count; i++) {
 					send_all_player_data(socker, i);
 				}
@@ -352,7 +351,7 @@ void handle_socker_data(int socker_listener, struct Socker *socker) {
 		printf("socker server: recv from fd %s: %.*s", client_ip, n, buf);
 
 		if (buf[0] == '/') {
-			if (strncmp(buf, "/data", 5) == 0) {
+			if (strncmp(buf, "/data", strlen("/data")) == 0) {
 				update_positions(socker, buf, &client_addr);
 			}
 		}

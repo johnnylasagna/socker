@@ -14,22 +14,25 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 // Getting address regardless of ipv6 or ipv4
 void *get_in_addr(struct sockaddr *sa);
 
-// Getting server socket from ip and port
-int get_server_socket(const char *server_name, const char *port);
+// Getting chat server socket from ip and port
+int get_chat_server_socket(const char *server_name, const char *port);
 
-int get_socker_socket(const char *server_name, const char *port);
+// Getting socker server socket from ip and port
+int get_socker_server_socket(const char *server_name, const char *port);
 
-int sendall(int s, char *buf, int *len);
+// Send command to server
+void send_command(int chat_server, const char *input);
 
-#ifdef __cplusplus
-}
-#endif
+// Send message to server
+void send_message(int chat_server, const char *name, const char *input);
+
+// Fully send tcp stream to server
+int sendall(int chat_server, char *buf, int *len);
+
+// Gamble your money
+void gamble(int *gamble_amount);
 
 #endif // CLIENT_NETWORK_H

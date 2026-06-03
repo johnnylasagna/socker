@@ -35,7 +35,7 @@ int main(int argc, char *argv[]) {
 	const char *port = argv[2];
 
 	// ---- Chat Server ----
-	chat_server = get_server_socket(server_name, port);
+	chat_server = get_chat_server_socket(server_name, port);
 
 	if (chat_server == -1) {
 		fprintf(stderr, "error getting listening socket\n");
@@ -43,7 +43,7 @@ int main(int argc, char *argv[]) {
 	}
 
 	// ---- Socker server ----
-	socker_server = get_socker_socket(server_name, port);
+	socker_server = get_socker_server_socket(server_name, port);
 
 	if (socker_server == -1) {
 		fprintf(stderr, "error getting udp socket\n");
@@ -193,7 +193,7 @@ int main(int argc, char *argv[]) {
 				if (msg[0] != '/') {
 					add_message(&messages, &messages_tail, msg, &count);
 
-				} else if (strncmp(msg, "/data", 5) == 0) {
+				} else if (strncmp(msg, "/data", strlen("/data")) == 0) {
 					handle_socker_data(msg, &id, &socker_data);
 					socker_updated = true;
 				}
@@ -220,7 +220,7 @@ int main(int argc, char *argv[]) {
 
 			if (n > 0) {
 				buf[n] = '\0';
-				if (strncmp(buf, "/data", 5) == 0) {
+				if (strncmp(buf, "/data", strlen("/data")) == 0) {
 					handle_socker_data(buf, &id, &socker_data);
 					if (socker) {
 						refresh_socker_window(socker_win, &socker_data);
@@ -229,6 +229,7 @@ int main(int argc, char *argv[]) {
 			}
 		}
 
+		// ---- Handle input ----
 		int ch = ERR;
 		if (show_messages) {
 			ch = wgetch(input_win);
@@ -238,6 +239,7 @@ int main(int argc, char *argv[]) {
 			ch = wgetch(help_win);
 		}
 
+		// ---- Ignore
 		if (ch == KEY_RESIZE || ch == KEY_UP || ch == KEY_DOWN || ch == KEY_NPAGE || ch == KEY_PPAGE) {
 			continue;
 		}
@@ -246,47 +248,35 @@ int main(int argc, char *argv[]) {
 			if (ch != ERR) {
 				if (ch == '\n') {
 					if (input_len > 0) {
-
 						if (input[0] == '/') {
-							char msg[280];
-							snprintf(msg, sizeof(msg), "%s\n", input);
-							int msg_len = strlen(msg);
-							if (sendall(chat_server, msg, &msg_len) == -1) {
-								fprintf(stderr, "failed sending to server\n");
-								perror("sendall");
-							}
+							send_command(chat_server, input);
 
-							if (strncmp(input, "/name", 5) == 0) {
+							if (strncmp(input, "/name", strlen("/name")) == 0) {
 								sscanf(input + strlen("/name "), "%s", name);
 
-							} else if (strncmp(input, "/whisper ", 9) == 0) {
+							} else if (strncmp(input, "/whisper", strlen("/whisper")) == 0) {
 								char whispered_msg[300];
 								generate_whispered_message(whispered_msg, sizeof(whispered_msg), input);
 								add_message(&messages, &messages_tail, whispered_msg, &count);
 
-							} else if (strncmp(input, "/save", 5) == 0) {
+							} else if (strncmp(input, "/save", strlen("/save")) == 0) {
 								save_chat_contents(messages);
 
-							} else if (strncmp(input, "/socker", 7) == 0) {
+							} else if (strncmp(input, "/socker", strlen("/socker")) == 0) {
 								socker = true;
 								show_messages = false;
 
 								hide_message_windows(messages_win, messages_text_win, input_win);
 
-							} else if (strncmp(input, "/help", 5) == 0) {
+							} else if (strncmp(input, "/help", strlen("/help")) == 0) {
 								help = true;
 								show_messages = false;
 
 								hide_message_windows(messages_win, messages_text_win, input_win);
-
 								draw_help_window(help_win);
 
-							} else if (strncmp(input, "/gamble", 7) == 0) {
-								if (rand() % 2 == 0) {
-									gamble_amount *= 2;
-								} else {
-									gamble_amount = 1;
-								}
+							} else if (strncmp(input, "/gamble", strlen("/gamble")) == 0) {
+								gamble(&gamble_amount);
 
 								char gamble_msg[32];
 								snprintf(gamble_msg, sizeof(gamble_msg), "You now have %d coins\n", gamble_amount);
@@ -294,29 +284,23 @@ int main(int argc, char *argv[]) {
 							}
 
 						} else {
-							char msg[280];
-							snprintf(msg, sizeof(msg), "%s:%s\n", name, input);
-							int msg_len = strlen(msg);
-							if (sendall(chat_server, msg, &msg_len) == -1) {
-								fprintf(stderr, "failed sending to server\n");
-								perror("sendall");
-							}
+							send_message(chat_server, name, input);
 
 							char messages_msg[280];
 							snprintf(messages_msg, sizeof(messages_msg), "You:%s\n", input);
-
 							add_message(&messages, &messages_tail, messages_msg, &count);
 						}
 
 						input_len = 0;
 						input[0] = '\0';
 					}
+
 				} else if (ch == KEY_BACKSPACE || ch == 127 || ch == 8) {
 					if (input_len > 0) {
 						input_len--;
-
 						input[input_len] = '\0';
 					}
+
 				} else {
 					if (input_len < 255) {
 						input[input_len++] = ch;
@@ -329,6 +313,7 @@ int main(int argc, char *argv[]) {
 					refresh_messages_window(messages_win, messages_text_win, &messages, &count, max_lines, x - 2);
 				}
 			}
+
 		} else if (socker) {
 			if (ch != ERR) {
 				if (ch == 'q') {
@@ -351,6 +336,7 @@ int main(int argc, char *argv[]) {
 					handle_socker_input(ch, socker_server, id);
 				}
 			}
+
 		} else if (help) {
 			if (ch != ERR) {
 				if (ch == 'q') {

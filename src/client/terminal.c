@@ -111,14 +111,14 @@ void refresh_messages_window(WINDOW *messages_win, WINDOW *messages_text_win, st
 
 	struct message *p = *messages;
 	while (p != NULL) {
-		if (strncmp(p->content, "You:", 4) == 0) {
+		if (strncmp(p->content, "You:", strlen("You:")) == 0) {
 			wattron(messages_text_win, COLOR_PAIR(1));
 		} else {
 			wattron(messages_text_win, COLOR_PAIR(2));
 		}
 		mvwprintw(messages_text_win, row++, 0, "%s", p->content);
 		row += strlen(p->content) / window_WIDTH;
-		if (strncmp(p->content, "You:", 4) == 0) {
+		if (strncmp(p->content, "You:", strlen("You:")) == 0) {
 			wattroff(messages_text_win, COLOR_PAIR(1));
 		} else {
 			wattroff(messages_text_win, COLOR_PAIR(2));

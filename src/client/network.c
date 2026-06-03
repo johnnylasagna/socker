@@ -10,7 +10,7 @@ void *get_in_addr(struct sockaddr *sa) {
 }
 
 // Getting server socket from ip and port
-int get_server_socket(const char *server_name, const char *port) {
+int get_chat_server_socket(const char *server_name, const char *port) {
 	int server = -1;
 	int rv;
 
@@ -54,7 +54,7 @@ int get_server_socket(const char *server_name, const char *port) {
 	return server;
 }
 
-int get_socker_socket(const char *server_name, const char *port) {
+int get_socker_server_socket(const char *server_name, const char *port) {
 	int server;
 	struct addrinfo hints, *ai, *p;
 
@@ -104,13 +104,33 @@ int get_socker_socket(const char *server_name, const char *port) {
 	return server;
 }
 
-int sendall(int s, char *buf, int *len) {
+void send_command(int chat_server, const char *input) {
+	char msg[280];
+	snprintf(msg, sizeof(msg), "%s\n", input);
+	int msg_len = strlen(msg);
+	if (sendall(chat_server, msg, &msg_len) == -1) {
+		fprintf(stderr, "failed sending to server\n");
+		perror("sendall");
+	}
+}
+
+void send_message(int chat_server, const char *name, const char *input) {
+	char msg[280];
+	snprintf(msg, sizeof(msg), "%s:%s\n", name, input);
+	int msg_len = strlen(msg);
+	if (sendall(chat_server, msg, &msg_len) == -1) {
+		fprintf(stderr, "failed sending to server\n");
+		perror("sendall");
+	}
+}
+
+int sendall(int chat_server, char *buf, int *len) {
 	int total = 0;
 	int bytesleft = *len;
 	int n = 0;
 
 	while (total < *len) {
-		n = send(s, buf + total, bytesleft, 0);
+		n = send(chat_server, buf + total, bytesleft, 0);
 		if (n == -1) {
 			break;
 		}
@@ -123,5 +143,13 @@ int sendall(int s, char *buf, int *len) {
 		return -1;
 	} else {
 		return 0;
+	}
+}
+
+void gamble(int *gamble_amount) {
+	if (rand() % 2 == 0) {
+		*gamble_amount *= 2;
+	} else {
+		*gamble_amount = 1;
 	}
 }

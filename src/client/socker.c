@@ -1,6 +1,7 @@
 #include "../../include/client/socker.h"
 #include "../../include/client/network.h"
 
+// Initialise socker struct
 void init_socker(struct Socker *socker, int id) {
 	socker->player_count = 0;
 	socker->player_size = id + 1;
@@ -19,6 +20,7 @@ void init_socker(struct Socker *socker, int id) {
 	socker->ball_position[1] = socker->field_size[1] / 2;
 }
 
+// Resize socker struct
 void resize_socker(struct Socker *socker, int count) {
 	socker->player_size = 2 * count + 1;
 	socker->player_positions = realloc(socker->player_positions, sizeof(int[2]) * socker->player_size);
@@ -28,6 +30,7 @@ void resize_socker(struct Socker *socker, int count) {
 	}
 }
 
+// Handle socker data received from server
 void handle_socker_data(char *buf, int *id, struct Socker *socker) {
 	int pos_x, pos_y;
 
@@ -61,6 +64,7 @@ void handle_socker_data(char *buf, int *id, struct Socker *socker) {
 	}
 }
 
+// Handle input for socker
 void handle_socker_input(char ch, int socker_server, int id) {
 	if (ch == 'w') {
 		char data_buf[15];
