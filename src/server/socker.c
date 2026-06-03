@@ -120,6 +120,25 @@ void send_player_data(struct Socker *socker, int id) {
 	}
 }
 
+void send_ball_data(struct Socker *socker) {
+	char ball_buf[40];
+
+	snprintf(ball_buf,
+	         sizeof(ball_buf),
+	         "/data ball %d %d\n",
+	         socker->ball_position[0], socker->ball_position[1]);
+
+	int ball_len = strlen(ball_buf);
+
+	for (int i = 0; i < socker->player_count; i++) {
+		int dest_fd = socker->player_fds[i];
+
+		if (sendall(dest_fd, ball_buf, &ball_len) == -1) {
+			perror("send");
+		}
+	}
+}
+
 void send_count_data(struct Socker *socker) {
 	char count_buf[40];
 
@@ -128,12 +147,12 @@ void send_count_data(struct Socker *socker) {
 	         "/data count %d\n",
 	         socker->player_count + 1);
 
-	int position_len = strlen(count_buf);
+	int count_len = strlen(count_buf);
 
 	for (int i = 0; i < socker->player_count; i++) {
 		int dest_fd = socker->player_fds[i];
 
-		if (sendall(dest_fd, count_buf, &position_len) == -1) {
+		if (sendall(dest_fd, count_buf, &count_len) == -1) {
 			perror("send");
 		}
 	}
@@ -194,6 +213,7 @@ void update_positions(struct Socker *socker, char *buf) {
 			if (socker->ball_position[1] < 0)
 				reset_ball_position(socker);
 		}
+		send_ball_data(socker);
 	}
 
 	send_player_data(socker, id);

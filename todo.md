@@ -7,6 +7,3 @@ Add an error window to handle user error
 
 ## Bug: Termination
 Handle termination during unexpected exit
-
-# Optimisation: Data
-Server always send all player data at once, instead send only required changes

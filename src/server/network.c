@@ -108,6 +108,8 @@ void send_to_all_clients(int listener, int *fd_count, struct pollfd *pfds, int *
 			}
 		}
 	}
+
+	(void)size;
 }
 
 // Add connected client to list
