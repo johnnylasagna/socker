@@ -88,6 +88,13 @@ void send_all_player_data(struct Socker *socker, int id) {
 	    "/data count %d \n",
 	    socker->player_count);
 
+	offset += snprintf(
+	    position_buf + offset,
+	    sizeof(position_buf) - offset,
+	    "/data goals %d %d \n",
+	    socker->num_goals[0],
+	    socker->num_goals[1]);
+
 	for (int j = 0; j < socker->player_count; j++) {
 		offset += snprintf(
 		    position_buf + offset,

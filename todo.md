@@ -11,3 +11,6 @@ Add an error window to handle user error
 
 ## Bug: Resize while in socker mode
 Field gets permanently corrupted
+
+## Feature: Add support for windows
+Add alternative functions for winsock api 

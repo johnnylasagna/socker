@@ -44,7 +44,7 @@ void set_name(int server, char *name, size_t size) {
 	int pos = strcspn(name, "\n");
 
 	if (name[pos] == '\n') {
-		name[pos + 1] = '\0';
+		name[pos] = '\0';
 
 	} else {
 		// Clear stream
