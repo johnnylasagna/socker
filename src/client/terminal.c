@@ -41,6 +41,7 @@ void init_colors() {
 
 	init_pair(1, COLOR_RED, COLOR_BLACK);
 	init_pair(2, COLOR_BLUE, COLOR_BLACK);
+	init_pair(3, COLOR_GREEN, COLOR_BLACK);
 
 	bkgd(COLOR_PAIR(1));
 }
@@ -139,6 +140,7 @@ void refresh_input_window(WINDOW *input_win, char *input, int *input_len, int wi
 	size_t offset = *input_len / (window_WIDTH - 2);
 	size_t remaining_input = *input_len % (window_WIDTH - 2);
 
+	wattron(input_win, COLOR_PAIR(3));
 	if (remaining_input == 0 && offset != 0) {
 		mvwprintw(input_win, 1, 1, "> %s", input + (offset - 1) * (window_WIDTH - 2));
 		wmove(input_win, 1, 3 + window_WIDTH - 2);
@@ -146,6 +148,7 @@ void refresh_input_window(WINDOW *input_win, char *input, int *input_len, int wi
 		wmove(input_win, 1, 3 + remaining_input);
 		mvwprintw(input_win, 1, 1, "> %s", input + offset * (window_WIDTH - 2));
 	}
+	wattroff(input_win, COLOR_PAIR(3));
 
 	wrefresh(input_win);
 }
@@ -156,11 +159,21 @@ void refresh_socker_window(WINDOW *socker_win, struct Socker *socker) {
 
 	box(socker_win, 0, 0);
 
+	wattron(socker_win, COLOR_PAIR(3));
 	mvwprintw(socker_win, socker->ball_position[1], socker->ball_position[0], "O");
+	wattroff(socker_win, COLOR_PAIR(3));
 
-	for (int i = 0; i < socker->player_count; i++) {
+	wattron(socker_win, COLOR_PAIR(1));
+	for (int i = 0; i < socker->player_count; i += 2) {
 		mvwprintw(socker_win, socker->player_positions[i][1], socker->player_positions[i][0], "X");
 	}
+	wattroff(socker_win, COLOR_PAIR(1));
+
+	wattron(socker_win, COLOR_PAIR(2));
+	for (int i = 1; i < socker->player_count; i += 2) {
+		mvwprintw(socker_win, socker->player_positions[i][1], socker->player_positions[i][0], "X");
+	}
+	wattroff(socker_win, COLOR_PAIR(2));
 
 	wrefresh(socker_win);
 }
