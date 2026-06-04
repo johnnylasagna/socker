@@ -4,6 +4,10 @@ The name is a play on sockets + soccer. My original goal (no pun intended) was t
 
 Type `/help` after running the client application to find commands you can run inside the application
 
+![Client 1 chatting](images/chat_1.png "Chat screen 1")
+![Client 2 chatting](images/chat_2.png "Chat screen 2")
+![Clients playing socker](images/socker.png "Socker screen")
+
 ## Dependencies
 - **gcc** (or compatible C compiler)
 - **ncurses** library
