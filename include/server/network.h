@@ -24,6 +24,7 @@ struct Socker;
 // Convert IP address into printable format
 const char *inet_ntop2(void *addr, char *buf, size_t size);
 
+// Get address regardless of IPv4 or IPv6
 void *get_in_addr(struct sockaddr *sa);
 
 // Get listener socket for chat server

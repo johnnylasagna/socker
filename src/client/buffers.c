@@ -36,7 +36,7 @@ int send_join_message(int server, char *name) {
 void set_name(int server, char *name, size_t size) {
 	printf("Enter name to connect to chatroom with: ");
 
-	if (fgets(name, size + 1, stdin) == NULL) {
+	if (fgets(name, size + 2, stdin) == NULL) {
 		fprintf(stderr, "error reading input stream\n");
 		exit(1);
 	}
@@ -44,7 +44,7 @@ void set_name(int server, char *name, size_t size) {
 	int pos = strcspn(name, "\n");
 
 	if (name[pos] == '\n') {
-		name[pos] = '\0';
+		name[pos + 1] = '\0';
 
 	} else {
 		// Clear stream

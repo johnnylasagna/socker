@@ -8,3 +8,6 @@ Add an error window to handle user error
 ## Feature: Sending files
 
 ## Feature: Add failed to send message to messages in case of failure
+
+## Bug: Resize while in socker mode
+Field gets permanently corrupted

@@ -1,6 +1,6 @@
 # socker
 
-The name is a play on sockets + soccer. My original goal (no pun intended) was to build a soccer game over udp (chat part is handled by tcp). But in the process learning through the wonderful [Beej's Guide To Networking](https://beej.us/guide/bgnet/), I built a chat application and decide to integrate my soccer idea into it. The soccer implementation is still incomplete. Messages are unencrypted because I hope you trust your friends.
+The name is a play on sockets + soccer. My original goal (no pun intended) was to build a soccer game over udp (chat part is handled by tcp). But in the process learning through the wonderful [Beej's Guide To Networking](https://beej.us/guide/bgnet/), I built a chat application and decide to integrate my soccer idea into it. The soccer implementation is now complete. Messages are unencrypted because I hope you trust your friends.
 
 Type `/help` after running the client application to find commands you can run inside the application
 

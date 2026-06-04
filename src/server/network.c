@@ -197,9 +197,9 @@ void handle_client_data(int listener, int socker_listener, int *fd_count, struct
 			perror("recv");
 		}
 
-		int fd = pfds[*pfd_i].fd;
+		int fd = sender_fd;
 
-		close(pfds[*pfd_i].fd);
+		close(sender_fd);
 
 		del_from_pfds(pfds, *pfd_i, fd_count);
 
@@ -406,7 +406,6 @@ void remove_socker_client(struct Socker *socker, int fd) {
 
 // Process connections
 void process_connections(int chat_listener, int socker_listener, int *fd_count, int *fd_size, struct pollfd **pfds, struct Socker *socker) {
-	// Separate pollhup and pollin later
 	for (int i = 0; i < *fd_count; i++) {
 		short revents = (*pfds)[i].revents;
 

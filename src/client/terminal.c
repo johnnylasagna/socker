@@ -155,9 +155,34 @@ void refresh_input_window(WINDOW *input_win, char *input, int *input_len, int wi
 
 // Refresh socker window
 void refresh_socker_window(WINDOW *socker_win, struct Socker *socker) {
+	char red_goals_buf[10];
+	int num_goals_red = socker->num_goals[0];
+
+	char blue_goals_buf[10];
+	int num_goals_blue = socker->num_goals[1];
+
+	snprintf(red_goals_buf, sizeof(red_goals_buf), "%d", num_goals_red);
+	snprintf(blue_goals_buf, sizeof(blue_goals_buf), "%d", num_goals_blue);
+
 	werase(socker_win);
 
 	box(socker_win, 0, 0);
+
+	mvwvline(socker_win, 1, socker->field_size[0] / 2, ACS_VLINE, socker->field_size[1] - 2);
+
+	wattron(socker_win, COLOR_PAIR(1));
+	mvwvline(socker_win, socker->field_size[1] / 3 + 1, socker->field_size[0] * 1 / 10 + 1, ACS_VLINE, socker->field_size[1] / 3 - 2);
+	mvwhline(socker_win, socker->field_size[1] / 3, 1, ACS_HLINE, socker->field_size[0] / 10);
+	mvwhline(socker_win, socker->field_size[1] * 2 / 3 - 1, 1, ACS_HLINE, socker->field_size[0] / 10);
+	mvwprintw(socker_win, socker->field_size[0] / 4, socker->field_size[0] / 10, red_goals_buf);
+	wattroff(socker_win, COLOR_PAIR(1));
+
+	wattron(socker_win, COLOR_PAIR(2));
+	mvwvline(socker_win, socker->field_size[1] / 3 + 1, socker->field_size[0] * 9 / 10 - 1, ACS_VLINE, socker->field_size[1] / 3 - 2);
+	mvwhline(socker_win, socker->field_size[1] / 3, socker->field_size[0] * 9 / 10, ACS_HLINE, socker->field_size[0] / 10 - 1);
+	mvwhline(socker_win, socker->field_size[1] * 2 / 3 - 1, socker->field_size[0] * 9 / 10, ACS_HLINE, socker->field_size[0] / 10 - 1);
+	mvwprintw(socker_win, socker->field_size[0] / 4, socker->field_size[0] * 9 / 10, blue_goals_buf);
+	wattroff(socker_win, COLOR_PAIR(2));
 
 	wattron(socker_win, COLOR_PAIR(3));
 	mvwprintw(socker_win, socker->ball_position[1], socker->ball_position[0], "O");

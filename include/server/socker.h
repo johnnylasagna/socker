@@ -13,6 +13,7 @@ struct Socker {
 
 	int field_size[2];
 	int ball_position[2];
+	int num_goals[2];
 
 	int player_count;
 	int player_size;
@@ -35,6 +36,8 @@ void send_all_player_data(struct Socker *socker, int id);
 void send_player_data(struct Socker *socker, int id);
 
 void send_count_data(struct Socker *socker);
+
+void send_goal_data(struct Socker *socker);
 
 void reset_ball_position(struct Socker *socker);
 

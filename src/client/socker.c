@@ -13,6 +13,9 @@ void init_socker(struct Socker *socker, int id) {
 		exit(1);
 	}
 
+	socker->num_goals[0] = 0;
+	socker->num_goals[1] = 0;
+
 	socker->field_size[0] = 80;
 	socker->field_size[1] = 24;
 
@@ -60,6 +63,15 @@ void handle_socker_data(char *buf, int *id, struct Socker *socker) {
 		if (sscanf(buf + strlen("/data player"), "%d %d %d", &pos_id, &pos_x, &pos_y) == 3) {
 			socker->player_positions[pos_id][0] = pos_x;
 			socker->player_positions[pos_id][1] = pos_y;
+		}
+
+	} else if (strncmp(buf, "/data goals", strlen("/data goals")) == 0) {
+		int num_goals_red;
+		int num_goals_blue;
+
+		if (sscanf(buf + strlen("/data goals"), "%d %d", &num_goals_red, &num_goals_blue) == 2) {
+			socker->num_goals[0] = num_goals_red;
+			socker->num_goals[1] = num_goals_blue;
 		}
 	}
 }

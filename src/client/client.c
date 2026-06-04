@@ -58,7 +58,7 @@ int main(int argc, char *argv[]) {
 	pfds[1].events = POLLIN;
 
 	// ---- Name setup ----
-	char name[20];
+	char name[22];
 	set_name(chat_server, name, sizeof(name));
 
 	// ---- Messages setup ----
@@ -240,7 +240,7 @@ int main(int argc, char *argv[]) {
 		}
 
 		// ---- Ignore
-		if (ch == KEY_RESIZE || ch == KEY_UP || ch == KEY_DOWN || ch == KEY_NPAGE || ch == KEY_PPAGE) {
+		if (ch == KEY_UP || ch == KEY_DOWN || ch == KEY_NPAGE || ch == KEY_PPAGE) {
 			continue;
 		}
 

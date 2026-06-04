@@ -15,6 +15,9 @@ void init_socker(struct Socker *socker) {
 		exit(1);
 	}
 
+	socker->num_goals[0] = 0;
+	socker->num_goals[1] = 0;
+
 	socker->field_size[0] = 80;
 	socker->field_size[1] = 24;
 
@@ -173,6 +176,30 @@ void send_count_data(struct Socker *socker) {
 	}
 }
 
+void send_goal_data(struct Socker *socker) {
+	char goal_buf[40];
+
+	snprintf(goal_buf,
+	         sizeof(goal_buf),
+	         "/data goals %d %d\n",
+	         socker->num_goals[0], socker->num_goals[1]);
+
+	int goal_len = strlen(goal_buf);
+
+	for (int i = 0; i < socker->player_count; i++) {
+		struct sockaddr_storage dest_fd = socker->player_udp_addrs[i];
+		socklen_t addr_len = sizeof(dest_fd);
+
+		if (dest_fd.ss_family != AF_INET) {
+			continue;
+		}
+
+		if (sendto(socker->server, goal_buf, goal_len, 0, (struct sockaddr *)&dest_fd, addr_len) == -1) {
+			perror("sendto");
+		}
+	}
+}
+
 void reset_ball_position(struct Socker *socker) {
 	socker->ball_position[0] = socker->field_size[0] / 2;
 	socker->ball_position[1] = socker->field_size[1] / 2;
@@ -214,24 +241,32 @@ void update_positions(struct Socker *socker, char *buf, struct sockaddr_storage 
 	    socker->player_positions[id][1] == socker->ball_position[1]) {
 		if (dx == 1) {
 			socker->ball_position[0] += 2;
-			if (socker->ball_position[0] > socker->field_size[0] - 1)
+			if (socker->ball_position[0] > socker->field_size[0] - 1) {
+				if (socker->ball_position[1] > socker->field_size[1] / 3 + 1 && socker->ball_position[1] < socker->field_size[1] * 2 / 3 - 1) {
+					socker->num_goals[0]++;
+					send_goal_data(socker);
+				}
 				reset_ball_position(socker);
+			}
 
 		} else if (dx == 2) {
 			socker->ball_position[0] -= 2;
-			if (socker->ball_position[0] < 0)
+			if (socker->ball_position[0] < 0) {
+				if (socker->ball_position[1] > socker->field_size[1] / 3 + 1 && socker->ball_position[1] < socker->field_size[1] * 2 / 3 - 1) {
+					socker->num_goals[1]++;
+					send_goal_data(socker);
+				}
 				reset_ball_position(socker);
-			if (socker->ball_position[0] > socker->field_size[0] - 1)
-				reset_ball_position(socker);
+			}
 		}
 
 		if (dy == 1) {
-			socker->ball_position[1] += 2;
+			socker->ball_position[1] += 1;
 			if (socker->ball_position[1] > socker->field_size[1] - 1)
 				reset_ball_position(socker);
 
 		} else if (dy == 2) {
-			socker->ball_position[1] -= 2;
+			socker->ball_position[1] -= 1;
 			if (socker->ball_position[1] < 0)
 				reset_ball_position(socker);
 		}
