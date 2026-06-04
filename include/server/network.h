@@ -50,6 +50,9 @@ void handle_client_data(int listener, int socker_listener, int *fd_count, struct
 // Handle socker data
 void handle_socker_data(int socker_listener, struct Socker *socker);
 
+// Handle disconnects
+void remove_socker_client(struct Socker *socker, int fd);
+
 // Process connections
 void process_connections(int listener, int socker_listener, int *fd_count, int *fd_size, struct pollfd **pfds, struct Socker *socker);
 

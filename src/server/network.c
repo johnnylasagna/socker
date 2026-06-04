@@ -197,11 +197,15 @@ void handle_client_data(int listener, int socker_listener, int *fd_count, struct
 			perror("recv");
 		}
 
+		int fd = pfds[*pfd_i].fd;
+
 		close(pfds[*pfd_i].fd);
 
 		del_from_pfds(pfds, *pfd_i, fd_count);
 
 		(*pfd_i)--;
+
+		remove_socker_client(socker, fd);
 
 	} else {
 		buf[n] = '\0';
@@ -209,12 +213,13 @@ void handle_client_data(int listener, int socker_listener, int *fd_count, struct
 
 		if (buf[0] == '/') {
 			if (strncmp(buf, "/quit", strlen("/quit")) == 0) {
+				char quit_buf[40];
+				snprintf(quit_buf, sizeof(quit_buf), "%s left\n", names[sender_fd]);
+
 				memset(names[sender_fd], 0, sizeof(names[sender_fd]));
 				close(sender_fd);
 				del_from_pfds(pfds, *pfd_i, fd_count);
 
-				char quit_buf[40];
-				snprintf(quit_buf, sizeof(quit_buf), "%s left\n", names[sender_fd]);
 				send_to_all_clients(listener, socker_listener, fd_count, pfds, &sender_fd, quit_buf, strlen(quit_buf));
 
 			} else if (strncmp(buf, "/name ", strlen("/name ")) == 0) {
@@ -265,7 +270,8 @@ void handle_client_data(int listener, int socker_listener, int *fd_count, struct
 				snprintf(socker_buf, sizeof(socker_buf), "%s joined socker\n", names[sender_fd]);
 				send_to_all_clients(listener, socker_listener, fd_count, pfds, &sender_fd, socker_buf, strlen(socker_buf));
 
-				struct sockaddr_storage udp_addr;
+				struct sockaddr_storage udp_addr = {0};
+				udp_addr.ss_family = AF_UNSPEC;
 
 				int id = add_player_to_socker(socker, &udp_addr, sender_fd);
 				char id_buf[22];
@@ -323,6 +329,36 @@ void handle_socker_data(int socker_listener, struct Socker *socker) {
 	if (n <= 0) {
 		// Connection closed
 		if (n == 0) {
+			int id = -1;
+
+			struct sockaddr_in *addr = (struct sockaddr_in *)&client_addr;
+
+			for (int i = 0; i < socker->player_count; i++) {
+				struct sockaddr_in *addr_i = (struct sockaddr_in *)&socker->player_udp_addrs[i];
+				if (addr->sin_port == addr_i->sin_port && addr->sin_addr.s_addr == addr_i->sin_addr.s_addr) {
+					id = i;
+					break;
+				}
+			}
+
+			if (id == -1) {
+				return;
+			}
+
+			int old_id = delete_player(socker, id);
+
+			char new_id_buf[25];
+			snprintf(new_id_buf, sizeof(new_id_buf), "/data id %d\n", id);
+			int new_id_len = strlen(new_id_buf);
+
+			if (sendall(socker->player_tcp_fds[old_id], new_id_buf, &new_id_len) == -1) {
+				perror("send");
+			}
+
+			for (int i = 0; i < socker->player_count; i++) {
+				send_all_player_data(socker, i);
+			}
+
 			printf("socker server: socket %s hung up", client_ip);
 		} else {
 			perror("recvfrom");
@@ -339,11 +375,56 @@ void handle_socker_data(int socker_listener, struct Socker *socker) {
 	}
 }
 
+void remove_socker_client(struct Socker *socker, int fd) {
+	int id = -1;
+
+	for (int i = 0; i < socker->player_count; i++) {
+		if (socker->player_tcp_fds[i] == fd) {
+			id = i;
+			break;
+		}
+	}
+
+	if (id == -1) {
+		return;
+	}
+
+	int old_id = delete_player(socker, id);
+
+	char new_id_buf[25];
+	snprintf(new_id_buf, sizeof(new_id_buf), "/data id %d\n", id);
+	int new_id_len = strlen(new_id_buf);
+
+	if (sendall(socker->player_tcp_fds[old_id], new_id_buf, &new_id_len) == -1) {
+		perror("send");
+	}
+
+	for (int i = 0; i < socker->player_count; i++) {
+		send_all_player_data(socker, i);
+	}
+}
+
 // Process connections
 void process_connections(int chat_listener, int socker_listener, int *fd_count, int *fd_size, struct pollfd **pfds, struct Socker *socker) {
 	// Separate pollhup and pollin later
 	for (int i = 0; i < *fd_count; i++) {
-		if ((*pfds)[i].revents & (POLLIN | POLLHUP)) {
+		short revents = (*pfds)[i].revents;
+
+		if (revents & POLLHUP) {
+			int fd = (*pfds)[i].fd;
+
+			printf("Client disconnected: fd %d\n", fd);
+
+			close(fd);
+			del_from_pfds(*pfds, i, fd_count);
+
+			i--;
+
+			remove_socker_client(socker, fd);
+			continue;
+		}
+
+		if (revents & POLLIN) {
 			if ((*pfds)[i].fd == chat_listener) {
 				handle_new_connection(chat_listener, fd_count, fd_size, pfds);
 

@@ -120,6 +120,10 @@ void send_player_data(struct Socker *socker, int id) {
 		struct sockaddr_storage dest_fd = socker->player_udp_addrs[i];
 		socklen_t addr_len = sizeof(dest_fd);
 
+		if (dest_fd.ss_family != AF_INET) {
+			continue;
+		}
+
 		if (sendto(socker->server, position_buf, position_len, 0, (struct sockaddr *)&dest_fd, addr_len) == -1) {
 			perror("sendto");
 		}
@@ -139,6 +143,10 @@ void send_ball_data(struct Socker *socker) {
 	for (int i = 0; i < socker->player_count; i++) {
 		struct sockaddr_storage dest_fd = socker->player_udp_addrs[i];
 		socklen_t addr_len = sizeof(dest_fd);
+
+		if (dest_fd.ss_family != AF_INET) {
+			continue;
+		}
 
 		if (sendto(socker->server, ball_buf, ball_len, 0, (struct sockaddr *)&dest_fd, addr_len) == -1) {
 			perror("sendto");

@@ -70,7 +70,7 @@ int main(int argc, char *argv[]) {
 
 	fd_count = 2;
 
-	// Main loop
+	// ---- Main loop ----
 	while (true) {
 		int poll_count = poll(pfds, fd_count, -1);
 
