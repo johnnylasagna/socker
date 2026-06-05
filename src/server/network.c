@@ -245,6 +245,25 @@ void handle_client_data(int listener, int socker_listener, int *fd_count, struct
 				snprintf(name_buf, sizeof(name_buf), "%s just joined us\n", names[sender_fd]);
 				send_to_all_clients(listener, socker_listener, fd_count, pfds, &sender_fd, name_buf, strlen(name_buf));
 
+			} else if (strncmp(buf, "/active", strlen("/active")) == 0) {
+				char active_buf[*fd_count * 25 + 10];
+
+				int offset = 0;
+				offset += snprintf(active_buf + offset, sizeof(active_buf) - offset, "Active:");
+
+				for (int j = 0; j < *fd_count; j++) {
+					int fd = pfds[j].fd;
+					if (names[fd][0] == '\0') {
+						continue;
+					}
+					offset += snprintf(active_buf + offset, sizeof(active_buf) - offset, " %s", names[fd]);
+				}
+
+				offset += snprintf(active_buf + offset, sizeof(active_buf) - offset, "\n");
+				int active_buf_len = offset;
+
+				sendall(sender_fd, active_buf, &active_buf_len);
+
 			} else if (strncmp(buf, "/whisper ", strlen("/whisper ")) == 0) {
 				char whisper_msg_with_name[280];
 				size_t whisper_msg_with_name_size = sizeof(whisper_msg_with_name);

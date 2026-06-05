@@ -197,7 +197,7 @@ int main(int argc, char *argv[]) {
 					handle_socker_data(msg, &id, &socker_data);
 					socker_updated = true;
 				}
-
+				
 				int remaining = tcp_buf_len - msg_len - 1;
 				memmove(tcp_buf, newline + 1, remaining);
 				tcp_buf_len = remaining;
