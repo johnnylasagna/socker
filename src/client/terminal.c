@@ -95,7 +95,8 @@ WINDOW *init_socker_window(int y, int x) {
 }
 
 // Refresh messages window
-void refresh_messages_window(WINDOW *messages_win, WINDOW *messages_text_win, struct message **messages, int *count, int max_lines, int window_WIDTH) {
+void refresh_messages_window(WINDOW *messages_win, WINDOW *messages_text_win, struct message **messages, int *count, int max_lines,
+                             int window_WIDTH) {
 	werase(messages_win);
 	werase(messages_text_win);
 
@@ -112,7 +113,7 @@ void refresh_messages_window(WINDOW *messages_win, WINDOW *messages_text_win, st
 
 	struct message *p = *messages;
 	while (p != NULL) {
-		if (strncmp(p->content, "You:", strlen("You:")) == 0) {
+		if (strncmp(p->content, "You:", strlen("You:")) == 0 || strncmp(p->content, "(whi", strlen("(whi")) == 0) {
 			wattron(messages_text_win, COLOR_PAIR(1));
 		} else {
 			wattron(messages_text_win, COLOR_PAIR(2));
@@ -174,14 +175,14 @@ void refresh_socker_window(WINDOW *socker_win, struct Socker *socker) {
 	mvwvline(socker_win, socker->field_size[1] / 3 + 1, socker->field_size[0] * 1 / 10 + 1, ACS_VLINE, socker->field_size[1] / 3 - 2);
 	mvwhline(socker_win, socker->field_size[1] / 3, 1, ACS_HLINE, socker->field_size[0] / 10);
 	mvwhline(socker_win, socker->field_size[1] * 2 / 3 - 1, 1, ACS_HLINE, socker->field_size[0] / 10);
-	mvwprintw(socker_win, socker->field_size[0] / 4, socker->field_size[0] / 10, red_goals_buf);
+	mvwprintw(socker_win, socker->field_size[0] / 4, socker->field_size[0] / 10, "%s", red_goals_buf);
 	wattroff(socker_win, COLOR_PAIR(1));
 
 	wattron(socker_win, COLOR_PAIR(2));
 	mvwvline(socker_win, socker->field_size[1] / 3 + 1, socker->field_size[0] * 9 / 10 - 1, ACS_VLINE, socker->field_size[1] / 3 - 2);
 	mvwhline(socker_win, socker->field_size[1] / 3, socker->field_size[0] * 9 / 10, ACS_HLINE, socker->field_size[0] / 10 - 1);
 	mvwhline(socker_win, socker->field_size[1] * 2 / 3 - 1, socker->field_size[0] * 9 / 10, ACS_HLINE, socker->field_size[0] / 10 - 1);
-	mvwprintw(socker_win, socker->field_size[0] / 4, socker->field_size[0] * 9 / 10, blue_goals_buf);
+	mvwprintw(socker_win, socker->field_size[0] / 4, socker->field_size[0] * 9 / 10, "%s", blue_goals_buf);
 	wattroff(socker_win, COLOR_PAIR(2));
 
 	wattron(socker_win, COLOR_PAIR(3));
@@ -245,7 +246,8 @@ void draw_help_window(WINDOW *help_win) {
 }
 
 // Resize all windows
-void resize_windows(WINDOW *messages_win, WINDOW *input_win, WINDOW *messages_text_win, WINDOW *socker_win, WINDOW *help_win, int y, int x) {
+void resize_windows(WINDOW *messages_win, WINDOW *input_win, WINDOW *messages_text_win, WINDOW *socker_win, WINDOW *help_win, int y,
+                    int x) {
 	wresize(messages_win, y - 3, x);
 	wresize(input_win, 3, x);
 	wresize(messages_text_win, y - 5, x - 2);

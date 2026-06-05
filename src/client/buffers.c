@@ -41,6 +41,23 @@ void set_name(int server, char *name, size_t size) {
 		exit(1);
 	}
 
+	for (int i = 0; i < (int)size + 2; i++) {
+		if ('a' <= name[i] && name[i] <= 'z') {
+			continue;
+		}
+		if ('A' <= name[i] && name[i] <= 'Z') {
+			continue;
+		}
+		if ('0' <= name[i] && name[i] <= '9') {
+			continue;
+		}
+		if (name[i] == '\n') {
+			break;
+		}
+		fprintf(stderr, "Only alphanumeric symbols allowed\n");
+		exit(1);
+	}
+
 	int pos = strcspn(name, "\n");
 
 	if (name[pos] == '\n') {
@@ -49,7 +66,8 @@ void set_name(int server, char *name, size_t size) {
 	} else {
 		// Clear stream
 		int c;
-		while ((c = getchar()) != '\n' && c != EOF);
+		while ((c = getchar()) != '\n' && c != EOF) {
+		}
 
 		fprintf(stderr, "name must be 19 characters or fewer\n");
 		exit(1);

@@ -52,8 +52,7 @@ int get_chat_listener_socket(const char *port) {
 	}
 
 	for (p = ai; p != NULL; p = p->ai_next) {
-		if ((listener = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) <
-		    0) {
+		if ((listener = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) < 0) {
 			perror("listener: socket");
 			continue;
 		}
@@ -100,8 +99,7 @@ int get_socker_listener_socket(struct Socker *socker, const char *port) {
 	}
 
 	for (p = servinfo; p != NULL; p = p->ai_next) {
-		if ((sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) ==
-		    -1) {
+		if ((sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1) {
 			perror("listener: socket");
 			continue;
 		}
@@ -173,12 +171,15 @@ void handle_new_connection(int listener, int *fd_count, int *fd_size, struct pol
 	newfd = accept(listener, (struct sockaddr *)&remoteaddr, &addrlen);
 
 	if (newfd == -1) {
-		perror("accept");
+		if (debug) {
+			perror("accept");
+		}
 	} else {
 		add_to_pfds(pfds, newfd, fd_count, fd_size);
 
-		printf("pollserver: new connection from %s on socket %d\n",
-		       inet_ntop2(&remoteaddr, remoteIP, sizeof remoteIP), newfd);
+		if (debug) {
+			printf("pollserver: new connection from %s on socket %d\n", inet_ntop2(&remoteaddr, remoteIP, sizeof remoteIP), newfd);
+		}
 	}
 }
 
@@ -190,11 +191,13 @@ void handle_client_data(int listener, int socker_listener, int *fd_count, struct
 	int sender_fd = pfds[*pfd_i].fd;
 
 	if (n <= 0) {
-		// Connection closed
-		if (n == 0) {
-			printf("pollserver: socket %d hung up\n", sender_fd);
-		} else {
-			perror("recv");
+
+		if (debug) {
+			if (n == 0) {
+				printf("pollserver: socket %d hung up\n", sender_fd);
+			} else {
+				perror("recv");
+			}
 		}
 
 		int fd = sender_fd;
@@ -209,7 +212,10 @@ void handle_client_data(int listener, int socker_listener, int *fd_count, struct
 
 	} else {
 		buf[n] = '\0';
-		printf("pollserver: recv from fd %d: %.*s", sender_fd, n, buf);
+
+		if (debug) {
+			printf("pollserver: recv from fd %d: %.*s", sender_fd, n, buf);
+		}
 
 		if (buf[0] == '/') {
 			if (strncmp(buf, "/quit", strlen("/quit")) == 0) {
@@ -230,7 +236,10 @@ void handle_client_data(int listener, int socker_listener, int *fd_count, struct
 
 				memcpy(names[sender_fd], buf + strlen("/name "), len);
 				names[sender_fd][len] = '\0';
-				printf("Name saved at fd %d: %s\n", sender_fd, names[sender_fd]);
+
+				if (debug) {
+					printf("\nName saved at fd %d: %s\n", sender_fd, names[sender_fd]);
+				}
 
 				char name_buf[40];
 				snprintf(name_buf, sizeof(name_buf), "%s just joined us\n", names[sender_fd]);
@@ -280,7 +289,9 @@ void handle_client_data(int listener, int socker_listener, int *fd_count, struct
 				int id_len = strlen(id_buf);
 
 				if (sendall(sender_fd, id_buf, &id_len) == -1) {
-					perror("send");
+					if (debug) {
+						perror("send");
+					}
 				}
 
 				send_all_player_data(socker, id);
@@ -323,11 +334,9 @@ void handle_socker_data(int socker_listener, struct Socker *socker) {
 	int n = recvfrom(socker_listener, buf, sizeof(buf) - 1, 0, (struct sockaddr *)&client_addr, &addrlen);
 
 	char client_ip[INET_ADDRSTRLEN];
-	inet_ntop(client_addr.ss_family,
-	          get_in_addr((struct sockaddr *)&client_addr), client_ip, sizeof client_ip);
+	inet_ntop(client_addr.ss_family, get_in_addr((struct sockaddr *)&client_addr), client_ip, sizeof client_ip);
 
 	if (n <= 0) {
-		// Connection closed
 		if (n == 0) {
 			int id = -1;
 
@@ -352,20 +361,28 @@ void handle_socker_data(int socker_listener, struct Socker *socker) {
 			int new_id_len = strlen(new_id_buf);
 
 			if (sendall(socker->player_tcp_fds[old_id], new_id_buf, &new_id_len) == -1) {
-				perror("send");
+				if (debug) {
+					perror("send");
+				}
 			}
 
 			for (int i = 0; i < socker->player_count; i++) {
 				send_all_player_data(socker, i);
 			}
 
-			printf("socker server: socket %s hung up", client_ip);
+			if (debug) {
+				printf("socker server: socket %s hung up", client_ip);
+			}
 		} else {
-			perror("recvfrom");
+			if (debug) {
+				perror("recvfrom");
+			}
 		}
 	} else {
 		buf[n] = '\0';
-		printf("socker server: recv from fd %s: %.*s", client_ip, n, buf);
+		if (debug) {
+			printf("socker server: recv from fd %s: %.*s", client_ip, n, buf);
+		}
 
 		if (buf[0] == '/') {
 			if (strncmp(buf, "/data", strlen("/data")) == 0) {
@@ -396,7 +413,9 @@ void remove_socker_client(struct Socker *socker, int fd) {
 	int new_id_len = strlen(new_id_buf);
 
 	if (sendall(socker->player_tcp_fds[old_id], new_id_buf, &new_id_len) == -1) {
-		perror("send");
+		if (debug) {
+			perror("send");
+		}
 	}
 
 	for (int i = 0; i < socker->player_count; i++) {

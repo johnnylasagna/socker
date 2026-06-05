@@ -19,7 +19,7 @@
 #include "../../include/server/whisper.h"
 
 char names[__FD_SETSIZE][20];
-bool debug = true;
+bool debug = false;
 
 int main(int argc, char *argv[]) {
 
@@ -31,7 +31,7 @@ int main(int argc, char *argv[]) {
 	struct pollfd *pfds = malloc(sizeof *pfds * fd_size);
 
 	if (argc != 2) {
-		fprintf(stderr, "Usage: pollserver <port>");
+		fprintf(stderr, "Usage: pollserver <port>\n");
 		exit(1);
 	}
 
@@ -63,7 +63,7 @@ int main(int argc, char *argv[]) {
 		exit(1);
 	}
 
-	puts("socker: server successfully started\n");
+	puts("socker: server successfully started");
 
 	pfds[1].fd = socker_listener;
 	pfds[1].events = POLLIN;
