@@ -70,6 +70,7 @@ int delete_player(struct Socker *socker, int index) {
 	return last;
 }
 
+// Send all data on join
 void send_all_player_data(struct Socker *socker, int id) {
 	char position_buf[1024];
 
@@ -114,6 +115,7 @@ void send_all_player_data(struct Socker *socker, int id) {
 	}
 }
 
+// Send player position data
 void send_player_data(struct Socker *socker, int id) {
 	char position_buf[40];
 
@@ -140,6 +142,7 @@ void send_player_data(struct Socker *socker, int id) {
 	}
 }
 
+// Send ball data to players
 void send_ball_data(struct Socker *socker) {
 	char ball_buf[40];
 
@@ -164,6 +167,7 @@ void send_ball_data(struct Socker *socker) {
 	}
 }
 
+// Send count data to players
 void send_count_data(struct Socker *socker) {
 	char count_buf[40];
 
@@ -183,6 +187,7 @@ void send_count_data(struct Socker *socker) {
 	}
 }
 
+// Send goal data to players
 void send_goal_data(struct Socker *socker) {
 	char goal_buf[40];
 
@@ -207,11 +212,13 @@ void send_goal_data(struct Socker *socker) {
 	}
 }
 
+// Reset ball position to center
 void reset_ball_position(struct Socker *socker) {
 	socker->ball_position[0] = socker->field_size[0] / 2;
 	socker->ball_position[1] = socker->field_size[1] / 2;
 }
 
+// Update positions according to player movement
 void update_positions(struct Socker *socker, char *buf, struct sockaddr_storage *client_addr) {
 	int id;
 	int dx;

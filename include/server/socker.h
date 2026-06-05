@@ -31,16 +31,25 @@ int add_player_to_socker(struct Socker *socker, struct sockaddr_storage *fd, int
 // Delete player from socker
 int delete_player(struct Socker *socker, int index);
 
+// Send all data on join
 void send_all_player_data(struct Socker *socker, int id);
 
+// Send player position data
 void send_player_data(struct Socker *socker, int id);
 
+// Send ball data to players
+void send_ball_data(struct Socker *socker);
+
+// Send count data to players
 void send_count_data(struct Socker *socker);
 
+// Send goal data to players
 void send_goal_data(struct Socker *socker);
 
+// Reset ball position to center
 void reset_ball_position(struct Socker *socker);
 
+// Update positions according to player movement
 void update_positions(struct Socker *socker, char *buf, struct sockaddr_storage *client_addr);
 
 #endif // SERVER_SOCKER_H
